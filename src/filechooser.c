@@ -48,6 +48,14 @@ static int send_response_error(struct filechooser_request *request) {
         log_print(ERROR, "sd_bus_message_append() failed: %s", strerror(-ret));
         goto cleanup;
     }
+    if ((ret = sd_bus_message_open_container(reply, 'a', "{sv}")) < 0) {
+        log_print(ERROR, "sd_bus_message_open_container() failed: %s", strerror(-ret));
+        goto cleanup;
+    }
+    if ((ret = sd_bus_message_close_container(reply)) < 0) {
+        log_print(ERROR, "sd_bus_message_close_container() failed: %s", strerror(-ret));
+        goto cleanup;
+    }
     if ((ret = sd_bus_send(NULL, reply, NULL)) < 0) {
         log_print(ERROR, "sd_bus_send() failed: %s", strerror(-ret));
         goto cleanup;
@@ -63,6 +71,14 @@ static int send_response_cancelled(struct filechooser_request *request) {
 
     if ((ret = sd_bus_message_append(reply, "u", PORTAL_RESPONSE_CANCELLED, 1)) < 0) {
         log_print(ERROR, "sd_bus_message_append() failed: %s", strerror(-ret));
+        goto cleanup;
+    }
+    if ((ret = sd_bus_message_open_container(reply, 'a', "{sv}")) < 0) {
+        log_print(ERROR, "sd_bus_message_open_container() failed: %s", strerror(-ret));
+        goto cleanup;
+    }
+    if ((ret = sd_bus_message_close_container(reply)) < 0) {
+        log_print(ERROR, "sd_bus_message_close_container() failed: %s", strerror(-ret));
         goto cleanup;
     }
     if ((ret = sd_bus_send(NULL, reply, NULL)) < 0) {
@@ -146,6 +162,7 @@ static int request_fd_event_handler(struct event_loop *loop, struct event_loop_i
         /* TODO: check number of uris returned when only one uri is needed */
         char **uris;
         int n_uris = get_uris_from_string(request->buffer.data, &uris);
+
         log_print(DEBUG, "got %d uris", n_uris);
         for (int i = 0; uris[i] != NULL; i++) {
             log_print(DEBUG, "uri %d: %s", i, uris[i]);
