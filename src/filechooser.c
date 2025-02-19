@@ -125,7 +125,7 @@ static int request_fd_event_handler(struct event_loop *loop, struct event_loop_i
     static char buf[4096];
     ssize_t bytes_read;
     while ((bytes_read = read(request->pipe_fd, buf, sizeof(buf))) > 0) {
-        da_append(&request->buffer, buf, bytes_read);
+        ds_append_bytes(&request->buffer, buf, bytes_read);
     }
 
     if (bytes_read == -1) {
@@ -138,7 +138,7 @@ static int request_fd_event_handler(struct event_loop *loop, struct event_loop_i
         event_loop_remove_item(loop, item);
 
         /* make sure buf ends with \0, TODO: ensure this inside da (rename to ds?) */
-        da_append(&request->buffer, "", sizeof(""));
+        ds_append_bytes(&request->buffer, "", sizeof(""));
         /* TODO: check number of uris returned when only one uri is needed */
         char **uris;
         int n_uris = get_uris_from_string(request->buffer.data, &uris);
@@ -238,7 +238,7 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     int pipe_fd = ret;
 
     struct filechooser_request *new_request = xcalloc(1, sizeof(*new_request));
-    da_init(&new_request->buffer);
+    ds_init(&new_request->buffer);
     new_request->type = SAVE_FILE;
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
@@ -345,7 +345,7 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     int pipe_fd = ret;
 
     struct filechooser_request *new_request = xcalloc(1, sizeof(*new_request));
-    da_init(&new_request->buffer);
+    ds_init(&new_request->buffer);
     new_request->type = OPEN_FILE;
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
@@ -378,7 +378,7 @@ void filechooser_request_cleanup(struct filechooser_request *request) {
         sd_bus_message_unref(request->response.message);
     }
 
-    da_free(&request->buffer);
+    ds_free(&request->buffer);
 
     free(request);
 }

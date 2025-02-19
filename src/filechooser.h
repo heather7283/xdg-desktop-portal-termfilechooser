@@ -5,7 +5,7 @@
 
 #include "thirdparty/queue.h"
 #include "sd-bus.h"
-#include "da.h"
+#include "ds.h"
 
 enum filechooser_request_type {
     SAVE_FILE = 0,
@@ -48,7 +48,7 @@ struct filechooser_request {
 
     int pipe_fd;
     pid_t picker_pid;
-    struct da buffer;
+    struct ds buffer;
 
     LIST_ENTRY(filechooser_request) link;
 };

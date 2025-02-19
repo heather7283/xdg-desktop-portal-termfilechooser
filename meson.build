@@ -55,7 +55,7 @@ executable('xdg-desktop-portal-termfilechooser',
     'src/uri.c',
     'src/filechooser.c',
     'src/xmalloc.c',
-    'src/da.c',
+    'src/ds.c',
     dependencies: [
         sdbus_dep,
         rt_dep,
