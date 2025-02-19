@@ -29,9 +29,9 @@ struct save_files_request_data {
 
 struct open_file_request_data {
     /* whether multiple files can be selected or not */
-    bool multiple;
+    int multiple;
     /* whether to select for folders instead of files */
-    bool directory;
+    int directory;
     /* suggested folder in which the file should be saved */
     char *current_folder;
 };

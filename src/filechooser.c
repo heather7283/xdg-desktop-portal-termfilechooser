@@ -261,8 +261,8 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
 
     char *handle, *app_id, *parent_window, *title;
     char *current_folder = NULL;
-    bool multiple = false;
-    bool directory = false;
+    int multiple = false;
+    int directory = false;
 
     log_print(DEBUG, "method_open_file: fired");
 
