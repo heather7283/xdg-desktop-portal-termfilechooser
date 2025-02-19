@@ -1,3 +1,6 @@
+#include <sys/signalfd.h>
+#include <sys/wait.h>
+#include <signal.h>
 #include <errno.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -7,7 +10,6 @@
 #include "xdptf.h"
 #include "filechooser.h"
 #include "event_loop.h"
-#include "sd-bus.h"
 #include "dbus.h"
 #include "xmalloc.h"
 #include "log.h"
@@ -101,30 +103,56 @@ int dbus_event_handler(struct event_loop *loop, struct event_loop_item *item) {
     return 0;
 }
 
-int stdin_echo_handler(struct event_loop *loop, struct event_loop_item *item) {
-    static char buf[4096];
-
-    ssize_t n;
-    n = read(0, buf, sizeof(buf) / sizeof(buf[0]));
-    if (n == 0) {
-        log_print(INFO, "EOF on stdin");
-        event_loop_quit(loop);
-    } else if (n < 0) {
-        log_print(ERROR, "failed to read from stdin: %s", strerror(errno));
-        return n;
+int signals_handler(struct event_loop *loop, struct event_loop_item *item) {
+    log_print(TRACE, "processing signals");
+    struct signalfd_siginfo siginfo;
+    if (read(item->fd, &siginfo, sizeof(siginfo)) != sizeof(siginfo)) {
+        log_print(ERROR, "failed to read signalfd_siginfo from signalfd: %s", strerror(errno));
+        return -1;
     }
 
-    n = write(1, buf, n);
-    if (n < 0) {
-        log_print(ERROR, "failed to write to stdout: %s", strerror(errno));
-        return n;
+    switch (siginfo.ssi_signo) {
+    case SIGINT:
+        log_print(INFO, "caught SIGINT, stopping main loop");
+        event_loop_quit(loop);
+        break;
+    case SIGTERM:
+        log_print(INFO, "caught SIGTERM, stopping main loop");
+        event_loop_quit(loop);
+        break;
+    case SIGCHLD:
+        pid_t pid;
+        log_print(DEBUG, "caught SIGCHLD, running reaper");
+        while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
+            log_print(DEBUG, "reaped zombie with pid %d", pid);
+        }
     }
 
     return 0;
 }
 
+int signalfd_init(void) {
+    int fd;
+
+    sigset_t mask;
+    sigemptyset(&mask);
+    sigaddset(&mask, SIGINT);
+    sigaddset(&mask, SIGTERM);
+    sigaddset(&mask, SIGCHLD);
+    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
+        die("failed to block signals: %s", strerror(errno));
+    }
+
+    if ((fd = signalfd(-1, &mask, SFD_CLOEXEC)) < 0) {
+        die("failed to set up signalfd: %s", strerror(errno));
+    }
+
+    return fd;
+}
+
 int main(int argc, char **argv) {
     int retcode = 0;
+    int signal_fd = -1;
 
     struct xdptf xdptf = {0};
 
@@ -141,9 +169,11 @@ int main(int argc, char **argv) {
 
     dbus_init(&xdptf);
 
+    signal_fd = signalfd_init();
+
     event_loop_init(&xdptf.event_loop);
     event_loop_add_item(&xdptf.event_loop, xdptf.sd_bus_fd, dbus_event_handler, xdptf.sd_bus);
-    event_loop_add_item(&xdptf.event_loop, 0, stdin_echo_handler, NULL);
+    event_loop_add_item(&xdptf.event_loop, signal_fd, signals_handler, NULL);
 
     event_loop_run(&xdptf.event_loop);
 
