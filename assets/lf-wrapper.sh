@@ -15,6 +15,30 @@ die() {
     exit 1
 }
 
+dummy_file="$(cat <<'EOF'
+Saving files tutorial
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!        === WARNING! ===        !!!
+!!! The contents of whatever file  !!!
+!!! you select will be OVERWRITTEN !!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+Instructions:
+1) Move this file wherever you want.
+2) Rename the file if needed.
+3) Press Enter to confirm selection.
+
+Notes:
+1) This file is provided only for your
+   convenience. You can delete it and
+   choose another file to overwrite.
+2) If you quit without pressing Enter
+   this file will be removed and save
+   operation aborted.
+EOF
+)"
+
 pipe_fd="$1"
 type="$2"
 
@@ -24,10 +48,10 @@ case "$type" in
         current_name="$4"
 
         suggested_file_path="${current_folder}/${current_name}"
-        if [ -e "$suggested_file_path" ]; then
-            suggested_file_path="${suggested_file_path}.$(head -c 8 /dev/urandom | base32)"
-        fi
-        touch "$suggested_file_path"
+        while [ -e "$suggested_file_path" ]; do
+            suggested_file_path="${suggested_file_path}_"
+        done
+        echo "$dummy_file" >"$suggested_file_path"
 
         foot \
             lf \
