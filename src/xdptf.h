@@ -3,7 +3,6 @@
 
 #include <stdbool.h>
 
-#include "thirdparty/queue.h"
 #include "event_loop.h"
 #include "log.h"
 
@@ -22,8 +21,6 @@ struct xdptf {
     int sd_bus_fd;
     struct sd_bus_slot *filechooser_vtable_slot;
     struct sd_bus_slot *name_owner_changed_slot;
-
-    LIST_HEAD(filechooser_requests, filechooser_request) requests;
 };
 
 #endif

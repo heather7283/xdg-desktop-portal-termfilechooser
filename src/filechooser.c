@@ -18,27 +18,7 @@ enum {
     PORTAL_RESPONSE_ENDED = 2
 };
 
-void filechooser_request_cleanup(struct filechooser_request *request) {
-    LIST_REMOVE(request, link);
-
-    /* you can never have too many NULL checks */
-    if (request->response.uris != NULL) {
-        for (int i = 0; i < request->response.n_uris; i++) {
-            if (request->response.uris[i] != NULL) {
-                free(request->response.uris[i]);
-            }
-        }
-        free(request->response.uris);
-    }
-
-    if (request->response.message != NULL) {
-        sd_bus_message_unref(request->response.message);
-    }
-
-    da_free(&request->buffer);
-
-    free(request);
-}
+static LIST_HEAD(requests, filechooser_request) requests = LIST_HEAD_INITIALIZER(requests);
 
 static int send_response_error(struct filechooser_request *request) {
     int ret = 0;
@@ -266,7 +246,7 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
 
-    LIST_INSERT_HEAD(&xdptf->requests, new_request, link);
+    LIST_INSERT_HEAD(&requests, new_request, link);
 
     event_loop_add_item(&xdptf->event_loop,
                         new_request->pipe_fd, request_fd_event_handler, new_request);
@@ -373,7 +353,7 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
 
-    LIST_INSERT_HEAD(&xdptf->requests, new_request, link);
+    LIST_INSERT_HEAD(&requests, new_request, link);
 
     event_loop_add_item(&xdptf->event_loop,
                         new_request->pipe_fd, request_fd_event_handler, new_request);
@@ -382,5 +362,34 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
 
 err:
     return ret;
+}
+
+void filechooser_request_cleanup(struct filechooser_request *request) {
+    LIST_REMOVE(request, link);
+
+    /* you can never have too many NULL checks */
+    if (request->response.uris != NULL) {
+        for (int i = 0; i < request->response.n_uris; i++) {
+            if (request->response.uris[i] != NULL) {
+                free(request->response.uris[i]);
+            }
+        }
+        free(request->response.uris);
+    }
+
+    if (request->response.message != NULL) {
+        sd_bus_message_unref(request->response.message);
+    }
+
+    da_free(&request->buffer);
+
+    free(request);
+}
+
+void filechooser_requests_cleanup(void) {
+    struct filechooser_request *request, *request_tmp;
+    LIST_FOREACH_SAFE(request, &requests, link, request_tmp) {
+        filechooser_request_cleanup(request);
+    };
 }
 

@@ -127,7 +127,6 @@ int main(int argc, char **argv) {
     int retcode = 0;
 
     struct xdptf xdptf = {0};
-    LIST_INIT(&xdptf.requests);
 
     log_init(stderr, ERROR);
 
@@ -149,14 +148,11 @@ int main(int argc, char **argv) {
     event_loop_run(&xdptf.event_loop);
 
 cleanup:
-    struct filechooser_request *request, *request_tmp;
-    LIST_FOREACH_SAFE(request, &xdptf.requests, link, request_tmp) {
-        /* TODO: move this out of main file maybe? */
-        filechooser_request_cleanup(request);
-    };
+    filechooser_requests_cleanup();
     dbus_cleanup(&xdptf);
     event_loop_cleanup(&xdptf.event_loop);
     config_cleanup(&xdptf.config);
+
     return retcode;
 }
 
