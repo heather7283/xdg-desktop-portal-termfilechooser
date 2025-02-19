@@ -68,7 +68,7 @@ void event_loop_remove_item(struct event_loop *loop, struct event_loop_item *ite
         close(item->fd);
     } else {
         /* looking at you, dbus */
-        log_print(WARN, "event loop: fd %d is not valid, was it closed somewhere else?");
+        log_print(WARN, "event loop: fd %d is not valid, was it closed somewhere else?", item->fd);
     }
 
     free(item);
