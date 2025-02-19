@@ -42,7 +42,11 @@ static char *uri_encode(const char *str) {
     return uri;
 }
 
-/* returns malloc'd null-terminated array of malloc'd strings */
+/*
+ * puts null-terminated malloc'd array of malloc'd strings in res.
+ * returns number of items in array without null terminator.
+ * if number of items is 0, do not free the array!
+ */
 int get_uris_from_string(char *str, char ***res) {
     char **uris;
 
@@ -56,6 +60,10 @@ int get_uris_from_string(char *str, char ***res) {
         if (*p == '\n') {
             n_lines += 1;
         }
+    }
+
+    if (n_lines == 0) {
+        return 0;
     }
 
     /* +1 for null terminator at the end */

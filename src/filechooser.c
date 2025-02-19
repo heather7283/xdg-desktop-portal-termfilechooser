@@ -144,9 +144,6 @@ static int request_fd_event_handler(struct event_loop *loop, struct event_loop_i
         int n_uris = get_uris_from_string(request->buffer.data, &uris);
 
         log_print(DEBUG, "got %d uris", n_uris);
-        for (int i = 0; uris[i] != NULL; i++) {
-            log_print(DEBUG, "uri %d: %s", i, uris[i]);
-        }
 
         if (n_uris == 0) {
             return send_response_cancelled(request);
