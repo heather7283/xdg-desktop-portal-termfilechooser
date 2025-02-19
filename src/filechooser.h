@@ -55,6 +55,7 @@ struct filechooser_request {
 
 void filechooser_request_cleanup(struct filechooser_request *request);
 int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error);
+int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error);
 
 #endif /* ifndef FILECHOOSER_H */
 

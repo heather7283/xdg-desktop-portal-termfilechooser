@@ -37,7 +37,7 @@ int exec_picker(const char *exe, enum filechooser_request_type request_type, voi
                  "%d", pipe_fds[PIPE_WRITING_END]);
 
         switch (request_type) {
-        case SAVE_FILE:
+        case SAVE_FILE: {
             struct save_file_request_data *data = request_data;
             const char *current_name = data->current_name;
             const char *current_folder = data->current_folder;
@@ -50,8 +50,24 @@ int exec_picker(const char *exe, enum filechooser_request_type request_type, voi
                    (current_name != NULL) ? current_name : "FALLBACK_FILENAME",
                    NULL);
             break;
+        }
+        case OPEN_FILE: {
+            struct open_file_request_data *data = request_data;
+            const char *current_folder = data->current_folder;
+            bool multiple = data->multiple;
+            bool directory = data->directory;
+            log_print(TRACE, "picker: executing %s %s %d %s %d %d",
+                      exe, pipe_fd_string, OPEN_FILE, current_folder, multiple, directory);
+            execlp(exe, exe,
+                   pipe_fd_string,
+                   "2", /* OPEN_FILE */
+                   (current_folder != NULL) ? current_folder : "/tmp",
+                   multiple ? "1" : "0",
+                   directory ? "1" : "0",
+                   NULL);
+            break;
+        }
         case SAVE_FILES:
-        case OPEN_FILE:
             die("TODO: not implemented exec_picker() for this request type");
             break;
         default:

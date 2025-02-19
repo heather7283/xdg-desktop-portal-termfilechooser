@@ -1,6 +1,14 @@
 #!/bin/sh
 
-set -x
+# $1 - File descriptor. Your script should write paths, each ending with newline, to this fd.
+# $2 - Request type. 0 is SaveFile, 1 is SaveFiles, 2 is OpenFile
+# For SaveFile:
+#   $3 - Suggested folder in which the file should be saved.
+#   $4 - Suggested name of the file.
+# For OpenFile:
+#   $3 - Suggested folder from which the files should be opened.
+#   $4 - 1 if multiple files can be selected, 0 otherwise.
+#   $5 - 1 if folders should be selected instead of files, 0 otherwise.
 
 die() {
     printf "$@" >&2
@@ -21,15 +29,38 @@ case "$type" in
         fi
         touch "$suggested_file_path"
 
-        foot -- \
+        foot \
             lf \
-            -single \
-            -command ':cmd confirm &fdmove -c 1 '"$pipe_fd"' echo "$fs"' \
-            -command ':map <enter> :confirm; :quit' \
+            -command 'cmd confirm $fdmove -c 1 '"${pipe_fd}"' echo "$fx"' \
+            -command 'map <enter> :confirm; quit' \
             "$suggested_file_path"
         ;;
+    (2) # OpenFile
+        current_folder="$3"
+        multiple="$4"
+        directory="$5"
+
+        if [ "$directory" = "1" ]; then
+            dironly_cmd='set dironly true'
+        else
+            dironly_cmd='set dironly false'
+        fi
+
+        if [ "$multiple" = "1" ]; then
+            confirm_cmd='fdmove -c 1 '"${pipe_fd}"' echo "$fx"'
+        else
+            confirm_cmd='fdmove -c 1 '"${pipe_fd}"' echo "$f"'
+        fi
+
+        foot \
+            lf \
+            -command "$dironly_cmd" \
+            -command 'cmd confirm $'"${confirm_cmd}" \
+            -command 'map <enter> :confirm; quit' \
+            "$current_folder"
+        ;;
     (*)
-        die "Invalid type: %d\n" "$type"
+        die "Invalid request type: %d\n" "$type"
 esac
 
 

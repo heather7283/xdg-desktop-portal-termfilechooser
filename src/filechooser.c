@@ -169,7 +169,8 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     int ret = 0;
 
     char *handle, *app_id, *parent_window, *title;
-    char *current_folder, *current_name;
+    char *current_folder = NULL;
+    char *current_name = NULL;
 
     log_print(DEBUG, "save_file_handler: fired");
 
@@ -194,6 +195,7 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
             goto err;
         }
 
+        /* TODO: also get current_file */
         if (strcmp(key, "current_name") == 0) {
             sd_bus_message_read(msg, "v", "s", &current_name);
             log_print(TRACE, "save_file_handler: option current_name = %s", current_name);
@@ -244,6 +246,113 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     struct filechooser_request *new_request = xcalloc(1, sizeof(*new_request));
     da_init(&new_request->buffer);
     new_request->type = SAVE_FILE;
+    new_request->response.message = response;
+    new_request->pipe_fd = pipe_fd;
+
+    LIST_INSERT_HEAD(&xdptf->requests, new_request, link);
+
+    event_loop_add_item(&xdptf->event_loop,
+                        new_request->pipe_fd, request_fd_event_handler, new_request);
+
+    return 1; /* async */
+
+err:
+    return ret;
+}
+
+int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
+    struct xdptf *xdptf = data;
+
+    int ret = 0;
+
+    char *handle, *app_id, *parent_window, *title;
+    char *current_folder = NULL;
+    bool multiple = false;
+    bool directory = false;
+
+    log_print(DEBUG, "method_open_file: fired");
+
+    if ((ret = sd_bus_message_read(msg, "osss", &handle, &app_id, &parent_window, &title)) < 0) {
+        log_print(ERROR, "method_open_file: sd_bus_message_read() failed");
+        goto err;
+    };
+    log_print(TRACE, "method_open_file: handle = %s", handle);
+    log_print(TRACE, "method_open_file: app_id = %s", app_id);
+    log_print(TRACE, "method_open_file: parent_window = %s", parent_window);
+    log_print(TRACE, "method_open_file: title = %s", title);
+
+    if ((ret = sd_bus_message_enter_container(msg, 'a', "{sv}")) < 0) {
+        log_print(ERROR, "method_open_file: sd_bus_message_enter_container() failed");
+        goto err;
+    }
+    while (sd_bus_message_enter_container(msg, 'e', "sv") > 0) {
+        char *key;
+
+        if ((ret = sd_bus_message_read(msg, "s", &key)) < 0) {
+            log_print(ERROR, "method_open_file: sd_bus_message_read() failed");
+            goto err;
+        }
+
+        if (strcmp(key, "current_folder") == 0) {
+            const void *ptr = NULL;
+            size_t size = 0;
+            if ((ret = sd_bus_message_enter_container(msg, 'v', "ay")) < 0) {
+                log_print(ERROR, "method_open_file: sd_bus_message_enter_container() failed");
+                goto err;
+            }
+            if ((ret = sd_bus_message_read_array(msg, 'y', &ptr, &size)) < 0) {
+                log_print(ERROR, "method_open_file: sd_bus_message_read_array() failed");
+                goto err;
+            }
+            current_folder = (char *)ptr;
+            log_print(TRACE, "method_open_file: option current_folder = %s", current_folder);
+        } else if (strcmp(key, "multiple") == 0) {
+            if ((ret = sd_bus_message_read(msg, "v", "b", &multiple)) < 0) {
+                log_print(ERROR, "method_open_file: sd_bus_message_read() failed");
+                goto err;
+            }
+            log_print(TRACE, "method_open_file: option multiple = %d", multiple);
+        } else if (strcmp(key, "directory") == 0) {
+            if ((ret = sd_bus_message_read(msg, "v", "b", &directory)) < 0) {
+                log_print(ERROR, "method_open_file: sd_bus_message_read() failed");
+                goto err;
+            }
+            log_print(TRACE, "method_open_file: option directory = %d", directory);
+        } else {
+            log_print(TRACE, "method_open_file: option %s IGNORED", key);
+            if ((ret = sd_bus_message_skip(msg, "v")) < 0) {
+                log_print(ERROR, "method_open_file: sd_bus_message_skip() failed");
+                goto err;
+            }
+        }
+
+        if ((ret = sd_bus_message_exit_container(msg)) < 0) {
+            log_print(ERROR, "method_open_file: sd_bus_message_exit_container() failed");
+            goto err;
+        }
+    }
+
+    sd_bus_message *response;
+    if ((ret = sd_bus_message_new_method_return(msg, &response)) < 0) {
+        log_print(ERROR, "sd_bus_message_new_method_return() failed: %s", strerror(-ret));
+        goto err;
+    }
+
+    struct open_file_request_data request_data = {
+        .current_folder = current_folder,
+        .directory = directory,
+        .multiple = multiple,
+    };
+    ret = exec_picker(xdptf->config.picker_cmd, OPEN_FILE, &request_data);
+    if (ret < 0) {
+        log_print(ERROR, "exec_picker() failed: %s", strerror(-ret));
+        goto err;
+    }
+    int pipe_fd = ret;
+
+    struct filechooser_request *new_request = xcalloc(1, sizeof(*new_request));
+    da_init(&new_request->buffer);
+    new_request->type = OPEN_FILE;
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
 
