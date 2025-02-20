@@ -23,9 +23,12 @@ meson compile -C build
 TODO: write this section
 
 ## License
-TODO: pick a license
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
 
-This code uses queue.h header which is licensed under the BSD-3-Clause license.
+This project uses queue.h header which is licensed under the BSD-3-Clause license.
 
 ## References
 - https://github.com/flatpak/xdg-desktop-portal
