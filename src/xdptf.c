@@ -144,6 +144,8 @@ int main(int argc, char **argv) {
 
     if (loglevel_override) {
         log_init(stderr, loglevel_override_value);
+    } else {
+        log_init(stderr, INFO);
     }
 
     if (config_init(&xdptf.config, config_path) < 0) {
@@ -153,6 +155,7 @@ int main(int argc, char **argv) {
     }
 
     if (!loglevel_override) {
+        log_print(INFO, "reinitialising logging with loglevel %d", xdptf.config.loglevel);
         log_init(stderr, xdptf.config.loglevel);
     }
 
