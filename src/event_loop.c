@@ -115,7 +115,9 @@ void event_loop_run(struct event_loop *loop) {
             }
         }
     }
+
 out:
+    return;
 }
 
 void event_loop_quit(struct event_loop *loop) {

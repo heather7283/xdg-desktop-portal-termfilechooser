@@ -24,7 +24,7 @@ static int get_next_config_path(const char **ppath) {
     static char path[PATH_MAX];
 
     switch (current++) {
-    case XDG_CONFIG_HOME:
+    case XDG_CONFIG_HOME: {
         const char *xdg_config_home = getenv("XDG_CONFIG_HOME");
         if (xdg_config_home == NULL) {
             log_print(WARN, "config: XDG_CONFIG_HOME is unset");
@@ -45,6 +45,7 @@ static int get_next_config_path(const char **ppath) {
             *ppath = path;
             return 1;
         }
+    }
     case ETC_XDG:
         snprintf(path, sizeof(path), "/etc/xdg/xdg-desktop-portal-termfilechooser/config");
         *ppath = path;

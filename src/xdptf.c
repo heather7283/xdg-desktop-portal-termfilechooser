@@ -60,8 +60,8 @@ int signals_handler(struct event_loop *loop, struct event_loop_item *item) {
         event_loop_quit(loop);
         break;
     case SIGCHLD:
-        pid_t pid;
         log_print(DEBUG, "caught SIGCHLD, running reaper");
+        pid_t pid;
         while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
             log_print(DEBUG, "reaped zombie with pid %d", pid);
         }

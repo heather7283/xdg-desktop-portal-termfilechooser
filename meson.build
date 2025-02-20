@@ -10,9 +10,7 @@ cc = meson.get_compiler('c')
 
 add_project_arguments(cc.get_supported_arguments([
     '-Wno-unused-parameter',
-    '-Wno-unused-function',
     '-Wno-gnu-zero-variadic-macro-arguments',
-    '-Wno-c23-extensions', # REMOVE ME
     '-D_POSIX_C_SOURCE=200809L',
 ]), language: 'c')
 
@@ -43,8 +41,6 @@ else
     sdbus_dep = dependency(get_option('sd-bus-provider'))
 endif
 add_project_arguments('-DHAVE_' + sdbus_dep.name().to_upper() + '=1', language: 'c')
-
-
 
 executable('xdg-desktop-portal-termfilechooser',
     'src/xdptf.c',
