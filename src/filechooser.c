@@ -20,6 +20,35 @@ enum {
 
 static LIST_HEAD(requests, filechooser_request) requests = LIST_HEAD_INITIALIZER(requests);
 
+static const char interface_name[] = "org.freedesktop.impl.portal.Request";
+
+static int method_close(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
+    struct filechooser_request *request = data;
+    int ret = 0;
+    log_print(DEBUG, "request closed");
+
+    sd_bus_message *reply = NULL;
+    if ((ret = sd_bus_message_new_method_return(msg, &reply)) < 0) {
+        log_print(ERROR, "sd_bus_message_new_method_return() failed: %s", strerror(-ret));
+        return ret;
+    }
+    if ((ret = sd_bus_send(NULL, reply, NULL)) < 0) {
+        log_print(ERROR, "sd_bus_send() failed: %s", strerror(-ret));
+        return ret;
+    }
+    sd_bus_message_unref(reply);
+
+    filechooser_request_cleanup(request);
+
+    return 0;
+}
+
+static const sd_bus_vtable request_vtable[] = {
+    SD_BUS_VTABLE_START(0),
+    SD_BUS_METHOD("Close", "", "", method_close, SD_BUS_VTABLE_UNPRIVILEGED),
+    SD_BUS_VTABLE_END
+};
+
 static int send_response_error(struct filechooser_request *request) {
     int ret = 0;
     struct sd_bus_message *reply = request->response.message;
@@ -130,12 +159,10 @@ static int request_fd_event_handler(struct event_loop *loop, struct event_loop_i
 
     if (bytes_read == -1) {
         log_print(ERROR, "failed to read from pipe (fd %d): %s", request->pipe_fd, strerror(errno));
-        event_loop_remove_item(item);
         send_response_error(request);
         return -1;
     } else if (bytes_read == 0) {
         log_print(DEBUG, "EOF on pipe fd %d", request->pipe_fd);
-        event_loop_remove_item(item);
 
         ds_append_bytes(&request->buffer, "", sizeof(""));
         /* TODO: check number of uris returned when only one uri is needed */
@@ -242,10 +269,17 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
 
+    if ((ret = sd_bus_add_object_vtable(sd_bus_message_get_bus(msg), &new_request->slot, handle,
+                                        interface_name, request_vtable, new_request)) < 0) {
+        log_print(ERROR, "sd_bus_add_object_vtable() failed: %s", strerror(-ret));
+        free(new_request);
+        goto err;
+    }
+
     LIST_INSERT_HEAD(&requests, new_request, link);
 
-    event_loop_add_item(&xdptf->event_loop,
-                        new_request->pipe_fd, request_fd_event_handler, new_request);
+    new_request->event_loop_item = event_loop_add_item(&xdptf->event_loop, new_request->pipe_fd,
+                                                       request_fd_event_handler, new_request);
 
     return 1; /* async */
 
@@ -349,10 +383,17 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
 
+    if ((ret = sd_bus_add_object_vtable(sd_bus_message_get_bus(msg), &new_request->slot, handle,
+                                        interface_name, request_vtable, new_request)) < 0) {
+        log_print(ERROR, "sd_bus_add_object_vtable() failed: %s", strerror(-ret));
+        free(new_request);
+        goto err;
+    }
+
     LIST_INSERT_HEAD(&requests, new_request, link);
 
-    event_loop_add_item(&xdptf->event_loop,
-                        new_request->pipe_fd, request_fd_event_handler, new_request);
+    new_request->event_loop_item = event_loop_add_item(&xdptf->event_loop, new_request->pipe_fd,
+                                                       request_fd_event_handler, new_request);
 
     return 1; /* async */
 
@@ -362,6 +403,14 @@ err:
 
 void filechooser_request_cleanup(struct filechooser_request *request) {
     LIST_REMOVE(request, link);
+
+    if (request->event_loop_item != NULL) {
+        event_loop_remove_item(request->event_loop_item);
+    }
+
+    if (request->slot != NULL) {
+        sd_bus_slot_unref(request->slot);
+    }
 
     /* you can never have too many NULL checks */
     if (request->response.uris != NULL) {
