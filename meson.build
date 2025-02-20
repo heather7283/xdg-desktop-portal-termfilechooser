@@ -46,12 +46,36 @@ add_project_arguments('-DHAVE_' + sdbus_dep.name().to_upper() + '=1', language: 
 prefix = get_option('prefix') # /
 sysconfdir = get_option('sysconfdir') # /etc
 add_project_arguments('-DSYSCONFDIR="@0@"'.format(prefix / sysconfdir), language: 'c')
+
 conf_data = configuration_data()
 conf_data.set('libexecdir', get_option('prefix') / get_option('libexecdir')) # /usr/libexec
+conf_data.set('systemd_service', '')
+
+systemd = dependency('systemd', required: get_option('systemd'))
+if systemd.found()
+    systemd_service_file = 'xdg-desktop-portal-termfilechooser.service'
+    user_unit_dir = systemd.get_variable(pkgconfig: 'systemduserunitdir',
+    pkgconfig_define: ['prefix', get_option('prefix')])
+    conf_data.set('systemd_service', 'SystemdService=' + systemd_service_file)
+
+    configure_file(
+        configuration: conf_data,
+        input: 'assets/' + systemd_service_file + '.in',
+        output: '@BASENAME@',
+        install_dir: user_unit_dir,
+    )
+endif
+
+configure_file(
+    configuration: conf_data,
+    input: 'assets/org.freedesktop.impl.portal.desktop.termfilechooser.service.in',
+    output: '@BASENAME@',
+    install_dir: get_option('datadir') / 'dbus-1' / 'services',
+)
 
 install_data(
-	'termfilechooser.portal',
-	install_dir: get_option('datadir') / 'xdg-desktop-portal' / 'portals',
+    'assets/termfilechooser.portal',
+    install_dir: get_option('datadir') / 'xdg-desktop-portal' / 'portals',
 )
 
 executable('xdg-desktop-portal-termfilechooser',
