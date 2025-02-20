@@ -2,6 +2,7 @@ project(
     'xdg-desktop-portal-termfilechooser',
     'c',
     version: '0.0.1',
+    license: 'GPL-3.0-or-later',
     meson_version: '>=0.59.0',
     default_options: ['warning_level=3', 'werror=true'],
 )
