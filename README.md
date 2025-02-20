@@ -23,9 +23,8 @@ meson compile -C build
 TODO: write this section
 
 ## License
-TODO: pick a license
-
-This code uses queue.h header which is licensed under the BSD-3-Clause license.
+MIT.
+This project uses queue.h header which is licensed under the BSD-3-Clause license.
 
 ## References
 - https://github.com/flatpak/xdg-desktop-portal
