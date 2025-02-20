@@ -78,6 +78,17 @@ install_data(
     install_dir: get_option('datadir') / 'xdg-desktop-portal' / 'portals',
 )
 
+if get_option('examples')
+    install_data(
+        'examples/lf-wrapper.sh',
+        install_dir: get_option('datadir') / 'xdg-desktop-portal-termfilechooser',
+    )
+    install_data(
+        'examples/example.conf',
+        install_dir: get_option('datadir') / 'xdg-desktop-portal-termfilechooser',
+    )
+endif
+
 executable('xdg-desktop-portal-termfilechooser',
     'src/xdptf.c',
     'src/log.c',
