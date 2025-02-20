@@ -7,7 +7,6 @@ project(
 )
 
 cc = meson.get_compiler('c')
-
 add_project_arguments(cc.get_supported_arguments([
     '-Wno-unused-parameter',
     '-Wno-gnu-zero-variadic-macro-arguments',
@@ -41,6 +40,18 @@ else
     sdbus_dep = dependency(get_option('sd-bus-provider'))
 endif
 add_project_arguments('-DHAVE_' + sdbus_dep.name().to_upper() + '=1', language: 'c')
+
+
+prefix = get_option('prefix') # /
+sysconfdir = get_option('sysconfdir') # /etc
+add_project_arguments('-DSYSCONFDIR="@0@"'.format(prefix / sysconfdir), language: 'c')
+conf_data = configuration_data()
+conf_data.set('libexecdir', get_option('prefix') / get_option('libexecdir')) # /usr/libexec
+
+install_data(
+	'termfilechooser.portal',
+	install_dir: get_option('datadir') / 'xdg-desktop-portal' / 'portals',
+)
 
 executable('xdg-desktop-portal-termfilechooser',
     'src/xdptf.c',
