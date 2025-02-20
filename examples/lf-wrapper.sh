@@ -61,12 +61,16 @@ case "$type" in
         done
         echo "$dummy_file" >"$suggested_file_path"
 
+        # This is what will be displayed at the top of lf window, see lf docs for details
+        promptfmt=' \033[1;31mSaving file:\033[0m \033[1;34m%w/\033[1;37m%f\033[0m'
+
         # launch lf running in foot.
         # map enter key to execute echo with selected files as arguments,
         # with its output redirected to pipe file descriptor provided by portal,
         # and then quit lf.
         foot \
             lf \
+            -command "set promptfmt \"${promptfmt}\"" \
             -command 'cmd confirm $fdmove -c 1 '"${pipe_fd}"' echo "$fx"' \
             -command 'map <enter> :confirm; quit' \
             "$suggested_file_path"
@@ -76,21 +80,25 @@ case "$type" in
         multiple="$4"
         directory="$5"
 
-        if [ "$directory" = "1" ]; then
-            dironly_cmd='set dironly true'
-        else
-            dironly_cmd='set dironly false'
-        fi
-
         if [ "$multiple" = "1" ]; then
             confirm_cmd='fdmove -c 1 '"${pipe_fd}"' echo "$fx"'
+            promptfmt=' \033[1;32mOpening files:\033[0m \033[1;34m%w/\033[1;37m%f\033[0m'
         else
             confirm_cmd='fdmove -c 1 '"${pipe_fd}"' echo "$f"'
+            promptfmt=' \033[1;32mOpening file:\033[0m \033[1;34m%w/\033[1;37m%f\033[0m'
+        fi
+
+        if [ "$directory" = "1" ]; then
+            dironly_cmd='set dironly true'
+            promptfmt=' \033[1;32mOpening directory:\033[0m \033[1;34m%w/\033[1;37m%f\033[0m'
+        else
+            dironly_cmd='set dironly false'
         fi
 
         foot \
             lf \
             -command "$dironly_cmd" \
+            -command "set promptfmt \"${promptfmt}\"" \
             -command 'cmd confirm $'"${confirm_cmd}" \
             -command 'map <enter> :confirm; quit' \
             "$current_folder"
