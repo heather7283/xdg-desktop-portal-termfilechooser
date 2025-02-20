@@ -11,7 +11,8 @@ enum {
     PIPE_WRITING_END = 1,
 };
 
-int exec_picker(const char *exe, enum filechooser_request_type request_type, void *request_data) {
+int exec_picker(const char *exe,
+                enum filechooser_request_type request_type, void *request_data, pid_t *child_pid) {
     int ret = 0;
     int pipe_fds[2] = {-1, -1};
 
@@ -30,6 +31,10 @@ int exec_picker(const char *exe, enum filechooser_request_type request_type, voi
     case 0:
         /* child */
         close(pipe_fds[PIPE_READING_END]);
+
+        if (setpgid(0, 0) < 0) {
+            log_print(WARN, "setpgid() failed: %s, won't be able to kill picker", strerror(errno));
+        }
 
         /* INT_MAX is 2147483647 (10 chars) + null terminator = 11 */
         char pipe_fd_string[11];
@@ -82,6 +87,7 @@ int exec_picker(const char *exe, enum filechooser_request_type request_type, voi
         /* parent continues... */
         close(pipe_fds[PIPE_WRITING_END]);
         log_print(DEBUG, "forked child with pid %d", pid);
+        *child_pid = pid;
         break;
     }
 

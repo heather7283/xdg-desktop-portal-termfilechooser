@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 
 #include "filechooser.h"
 #include "xdptf.h"
@@ -26,6 +27,10 @@ static int method_close(sd_bus_message *msg, void *data, sd_bus_error *ret_error
     struct filechooser_request *request = data;
     int ret = 0;
     log_print(DEBUG, "request closed");
+
+    if (kill(-request->picker_pid, SIGTERM) < 0) {
+        log_print(WARN, "failed to kill picker: %s", strerror(errno));
+    };
 
     sd_bus_message *reply = NULL;
     if ((ret = sd_bus_message_new_method_return(msg, &reply)) < 0) {
@@ -256,7 +261,8 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
         .current_folder = current_folder,
         .current_name = current_name,
     };
-    ret = exec_picker(xdptf->config.picker_cmd, SAVE_FILE, &request_data);
+    pid_t child_pid;
+    ret = exec_picker(xdptf->config.picker_cmd, SAVE_FILE, &request_data, &child_pid);
     if (ret < 0) {
         log_print(ERROR, "exec_picker() failed: %s", strerror(-ret));
         goto err;
@@ -268,6 +274,7 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     new_request->type = SAVE_FILE;
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
+    new_request->picker_pid = child_pid;
 
     if ((ret = sd_bus_add_object_vtable(sd_bus_message_get_bus(msg), &new_request->slot, handle,
                                         interface_name, request_vtable, new_request)) < 0) {
@@ -370,7 +377,8 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
         .directory = directory,
         .multiple = multiple,
     };
-    ret = exec_picker(xdptf->config.picker_cmd, OPEN_FILE, &request_data);
+    pid_t child_pid;
+    ret = exec_picker(xdptf->config.picker_cmd, OPEN_FILE, &request_data, &child_pid);
     if (ret < 0) {
         log_print(ERROR, "exec_picker() failed: %s", strerror(-ret));
         goto err;
@@ -382,6 +390,7 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
     new_request->type = OPEN_FILE;
     new_request->response.message = response;
     new_request->pipe_fd = pipe_fd;
+    new_request->picker_pid = child_pid;
 
     if ((ret = sd_bus_add_object_vtable(sd_bus_message_get_bus(msg), &new_request->slot, handle,
                                         interface_name, request_vtable, new_request)) < 0) {
