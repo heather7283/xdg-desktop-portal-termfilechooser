@@ -1,0 +1,12 @@
+[Unit]
+Description=Portal service (termfilechooser)
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionEnvironment=WAYLAND_DISPLAY
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.impl.portal.desktop.termfilechooser
+ExecStart=@libexecdir@/xdg-desktop-portal-termfilechooser
+Restart=on-failure
+
