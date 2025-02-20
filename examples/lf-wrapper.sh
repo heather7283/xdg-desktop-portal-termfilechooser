@@ -11,6 +11,11 @@ set -x
 #   $3 - Suggested folder from which the files should be opened.
 #   $4 - 1 if multiple files can be selected, 0 otherwise.
 #   $5 - 1 if folders should be selected instead of files, 0 otherwise.
+#
+# NOTE: in this script I use "fdmove" program.
+# fdmove is a part of execline (https://skarnet.org/software/execline), and therefore
+# an external dependency. There just isn't a way to redirect fds greater than 10
+# in both bash and posix sh, and there's no guarantee pipe_fd will be smaller than 10.
 
 die() {
     printf "$@" >&2
@@ -50,11 +55,16 @@ case "$type" in
         current_name="$4"
 
         suggested_file_path="${current_folder}/${current_name}"
+        # keep appending _ to suggested file path if it already exists
         while [ -e "$suggested_file_path" ]; do
             suggested_file_path="${suggested_file_path}_"
         done
         echo "$dummy_file" >"$suggested_file_path"
 
+        # launch lf running in foot.
+        # map enter key to execute echo with selected files as arguments,
+        # with its output redirected to pipe file descriptor provided by portal,
+        # and then quit lf.
         foot \
             lf \
             -command 'cmd confirm $fdmove -c 1 '"${pipe_fd}"' echo "$fx"' \
