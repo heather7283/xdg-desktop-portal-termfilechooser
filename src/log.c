@@ -50,12 +50,6 @@ void log_print(enum log_loglevel level, char *message, ...) {
         }
         level_char = 'D';
         break;
-    case TRACE:
-        if (log_config.colors) {
-            fprintf(log_config.stream, LOG_ANSI_COLORS_DEBUG);
-        }
-        level_char = 'T';
-        break;
     default:
         fprintf(stderr, "logger error: unknown loglevel %d\n", level);
         abort();

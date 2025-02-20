@@ -24,7 +24,7 @@ static int handle_name_lost(sd_bus_message *msg, void *data, sd_bus_error *ret_e
     return 1;
 }
 
-void dbus_init(struct xdptf *xdptf) {
+void dbus_init(struct xdptf *xdptf, bool replace) {
     static const char service_name[] = "org.freedesktop.impl.portal.desktop.termfilechooser";
     static const char object_path[] = "/org/freedesktop/portal/desktop";
 

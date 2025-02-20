@@ -90,13 +90,13 @@ void event_loop_run(struct event_loop *loop) {
             die("event loop: epoll_wait error (%s)", strerror(errno));
         }
 
-        log_print(TRACE, "event loop: received events on %d fds", number_fds);
+        log_print(DEBUG, "event loop: received events on %d fds", number_fds);
 
         for (int n = 0; n < number_fds; n++) {
             bool match_found = false;
             struct event_loop_item *item, *item_tmp;
 
-            log_print(TRACE, "event loop: processing fd %d", events[n].data.fd);
+            log_print(DEBUG, "event loop: processing fd %d", events[n].data.fd);
 
             LIST_FOREACH_SAFE(item, &loop->items, link, item_tmp) {
                 if (item->fd == events[n].data.fd) {

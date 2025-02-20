@@ -8,7 +8,6 @@
 #define LOG_ANSI_COLORS_ERROR "\033[31m"
 #define LOG_ANSI_COLORS_WARN  "\033[33m"
 #define LOG_ANSI_COLORS_DEBUG "\033[2m"
-#define LOG_ANSI_COLORS_TRACE "\033[2m"
 #define LOG_ANSI_COLORS_RESET "\033[0m"
 
 enum log_loglevel {
@@ -17,7 +16,6 @@ enum log_loglevel {
     WARN,
     INFO,
     DEBUG,
-    TRACE
 };
 
 struct log_config {

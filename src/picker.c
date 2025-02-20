@@ -41,7 +41,7 @@ int exec_picker(const char *exe, enum filechooser_request_type request_type, voi
             struct save_file_request_data *data = request_data;
             const char *current_name = data->current_name;
             const char *current_folder = data->current_folder;
-            log_print(TRACE, "picker: executing %s %s %d %s %s",
+            log_print(DEBUG, "picker: executing %s %s %d %s %s",
                       exe, pipe_fd_string, SAVE_FILE, current_folder, current_name);
             execlp(exe, exe,
                    pipe_fd_string,
@@ -56,7 +56,7 @@ int exec_picker(const char *exe, enum filechooser_request_type request_type, voi
             const char *current_folder = data->current_folder;
             int multiple = data->multiple;
             int directory = data->directory;
-            log_print(TRACE, "picker: executing %s %s %d %s %d %d",
+            log_print(DEBUG, "picker: executing %s %s %d %s %d %d",
                       exe, pipe_fd_string, OPEN_FILE, current_folder, multiple, directory);
             execlp(exe, exe,
                    pipe_fd_string,

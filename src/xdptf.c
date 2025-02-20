@@ -18,9 +18,10 @@ static void print_usage_and_exit(FILE *stream, int retcode) {
     static const char usage[] =
         "Usage: xdg-desktop-portal-termfilechooser [options]\n"
         "\n"
-        "    -p, --picker        Picker executable\n"
-        "    -d, --default-dir   Default save dir\n"
+        "    -c, --config        Path to config file\n"
         "    -r, --replace       Replace a running instance.\n"
+        "    -l, --loglevel      Loglevel override.\n"
+        "                        One of quiet, error, warn, info, debug.\n"
         "    -h, --help          Display this message and exit.\n"
         "\n";
 
@@ -28,72 +29,10 @@ static void print_usage_and_exit(FILE *stream, int retcode) {
     exit(retcode);
 }
 
-static int parse_command_line(int *argc, char ***argv, struct xdptf_config *config) {
-    static const char shortopts[] = "p:d:l:rh";
-    static const struct option longopts[] = {
-        { "picker",      required_argument, NULL, 'p' },
-        { "default-dir", required_argument, NULL, 'd' },
-        { "replace",     no_argument,       NULL, 'r' },
-        { "loglevel",    required_argument, NULL, 'l' },
-        { "help",        no_argument,       NULL, 'h' },
-        { 0 }
-    };
-
-    int c;
-    while ((c = getopt_long(*argc, *argv, shortopts, longopts, NULL)) > 0) {
-        switch (c) {
-        case 'p':
-            /* TODO: test if cmd is executable */
-            config->picker_cmd = xstrdup(optarg);
-            break;
-        case 'd':
-            /* TODO: test if dir exists */
-            config->default_dir = xstrdup(optarg);
-            break;
-        case 'r':
-            config->replace = true;
-            break;
-        case 'l':
-            /* TODO: this is stupid, make it not stupid */
-            errno = 0;
-            config->loglevel = strtoul(optarg, NULL, 10);
-            if (errno != 0) {
-                log_print(ERROR, "failed to convert %s to number: %s",
-                          optarg, strerror(errno));
-                return -1;
-            }
-            break;
-        case 'h':
-            print_usage_and_exit(stdout, 0);
-            break;
-        default:
-            print_usage_and_exit(stderr, 1);
-            break;
-        }
-    }
-
-    return 0;
-}
-
-static void config_init(struct xdptf_config *config) {
-    config->picker_cmd = NULL;
-    config->default_dir = NULL;
-    config->replace = false;
-}
-
-static void config_cleanup(struct xdptf_config *config) {
-    if (config->picker_cmd != NULL) {
-        free(config->picker_cmd);
-    }
-    if (config->default_dir != NULL) {
-        free(config->default_dir);
-    }
-}
-
 int dbus_event_handler(struct event_loop *loop, struct event_loop_item *item) {
     struct sd_bus *bus = item->data;
 
-    log_print(TRACE, "processing dbus events");
+    log_print(DEBUG, "processing dbus events");
     int ret;
     if ((ret = sd_bus_process(bus, NULL)) < 0) {
         log_print(ERROR, "failed to process dbus events: %s", strerror(-ret));
@@ -104,7 +43,7 @@ int dbus_event_handler(struct event_loop *loop, struct event_loop_item *item) {
 }
 
 int signals_handler(struct event_loop *loop, struct event_loop_item *item) {
-    log_print(TRACE, "processing signals");
+    log_print(DEBUG, "processing signals");
     struct signalfd_siginfo siginfo;
     if (read(item->fd, &siginfo, sizeof(siginfo)) != sizeof(siginfo)) {
         log_print(ERROR, "failed to read signalfd_siginfo from signalfd: %s", strerror(errno));
@@ -156,18 +95,68 @@ int main(int argc, char **argv) {
 
     struct xdptf xdptf = {0};
 
-    log_init(stderr, ERROR);
+    static const char shortopts[] = "c:l:rh";
+    static const struct option longopts[] = {
+        { "config",      required_argument, NULL, 'c' },
+        { "loglevel",    required_argument, NULL, 'l' },
+        { "replace",     no_argument,       NULL, 'r' },
+        { "help",        no_argument,       NULL, 'h' },
+        { 0 }
+    };
 
-    config_init(&xdptf.config);
-    if (parse_command_line(&argc, &argv, &xdptf.config) < 0) {
-        log_print(ERROR, "error while parsing command line");
+    bool replace = false;
+    bool loglevel_override = false;
+    enum log_loglevel loglevel_override_value;
+    char *config_path = NULL;
+    int c;
+    while ((c = getopt_long(argc, argv, shortopts, longopts, NULL)) > 0) {
+        switch (c) {
+        case 'c':
+            config_path = xstrdup(optarg);
+            break;
+        case 'l':
+            loglevel_override = true;
+            if (strcmp(optarg, "quiet") == 0) {
+                loglevel_override_value = QUIET;
+            } else if (strcmp(optarg, "error") == 0) {
+                loglevel_override_value = ERROR;
+            } else if (strcmp(optarg, "warn") == 0) {
+                loglevel_override_value = WARN;
+            } else if (strcmp(optarg, "info") == 0) {
+                loglevel_override_value = INFO;
+            } else if (strcmp(optarg, "debug") == 0) {
+                loglevel_override_value = DEBUG;
+            } else {
+                print_usage_and_exit(stderr, 1);
+            }
+            break;
+        case 'r':
+            replace = true;
+            break;
+        case 'h':
+            print_usage_and_exit(stdout, 0);
+            break;
+        default:
+            print_usage_and_exit(stderr, 1);
+            break;
+        }
+    }
+
+    if (loglevel_override) {
+        log_init(stderr, loglevel_override_value);
+    }
+
+    if (config_init(&xdptf.config, config_path) < 0) {
+        log_print(ERROR, "failed to parse config");
         retcode = 1;
         goto cleanup;
     }
 
-    log_init(stderr, xdptf.config.loglevel);
+    if (!loglevel_override) {
+        log_init(stderr, xdptf.config.loglevel);
+    }
 
-    dbus_init(&xdptf);
+    dbus_init(&xdptf, replace);
 
     signal_fd = signalfd_init();
 
@@ -182,6 +171,9 @@ cleanup:
     dbus_cleanup(&xdptf);
     event_loop_cleanup(&xdptf.event_loop);
     config_cleanup(&xdptf.config);
+    if (config_path != NULL) {
+        free(config_path);
+    }
 
     return retcode;
 }

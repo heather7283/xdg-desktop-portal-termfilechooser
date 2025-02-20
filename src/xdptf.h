@@ -4,14 +4,8 @@
 #include <stdbool.h>
 
 #include "event_loop.h"
+#include "config.h"
 #include "log.h"
-
-struct xdptf_config {
-    char *picker_cmd;
-    char *default_dir;
-    enum log_loglevel loglevel;
-    bool replace;
-};
 
 struct xdptf {
     struct xdptf_config config;

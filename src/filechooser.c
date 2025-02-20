@@ -172,10 +172,10 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
         log_print(ERROR, "save_file_handler: sd_bus_message_read() failed");
         goto err;
     };
-    log_print(TRACE, "save_file_handler: handle = %s", handle);
-    log_print(TRACE, "save_file_handler: app_id = %s", app_id);
-    log_print(TRACE, "save_file_handler: parent_window = %s", parent_window);
-    log_print(TRACE, "save_file_handler: title = %s", title);
+    log_print(DEBUG, "save_file_handler: handle = %s", handle);
+    log_print(DEBUG, "save_file_handler: app_id = %s", app_id);
+    log_print(DEBUG, "save_file_handler: parent_window = %s", parent_window);
+    log_print(DEBUG, "save_file_handler: title = %s", title);
 
     if ((ret = sd_bus_message_enter_container(msg, 'a', "{sv}")) < 0) {
         log_print(ERROR, "save_file_handler: sd_bus_message_enter_container() failed");
@@ -192,7 +192,7 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
         /* TODO: also get current_file */
         if (strcmp(key, "current_name") == 0) {
             sd_bus_message_read(msg, "v", "s", &current_name);
-            log_print(TRACE, "save_file_handler: option current_name = %s", current_name);
+            log_print(DEBUG, "save_file_handler: option current_name = %s", current_name);
         } else if (strcmp(key, "current_folder") == 0) {
             const void *ptr = NULL;
             size_t size = 0;
@@ -205,9 +205,9 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
                 goto err;
             }
             current_folder = (char *)ptr;
-            log_print(TRACE, "save_file_handler: option current_folder = %s", current_folder);
+            log_print(DEBUG, "save_file_handler: option current_folder = %s", current_folder);
         } else {
-            log_print(TRACE, "save_file_handler: option %s IGNORED", key);
+            log_print(DEBUG, "save_file_handler: option %s IGNORED", key);
             if ((ret = sd_bus_message_skip(msg, "v")) < 0) {
                 log_print(ERROR, "save_file_handler: sd_bus_message_skip() failed");
                 goto err;
@@ -270,10 +270,10 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
         log_print(ERROR, "method_open_file: sd_bus_message_read() failed");
         goto err;
     };
-    log_print(TRACE, "method_open_file: handle = %s", handle);
-    log_print(TRACE, "method_open_file: app_id = %s", app_id);
-    log_print(TRACE, "method_open_file: parent_window = %s", parent_window);
-    log_print(TRACE, "method_open_file: title = %s", title);
+    log_print(DEBUG, "method_open_file: handle = %s", handle);
+    log_print(DEBUG, "method_open_file: app_id = %s", app_id);
+    log_print(DEBUG, "method_open_file: parent_window = %s", parent_window);
+    log_print(DEBUG, "method_open_file: title = %s", title);
 
     if ((ret = sd_bus_message_enter_container(msg, 'a', "{sv}")) < 0) {
         log_print(ERROR, "method_open_file: sd_bus_message_enter_container() failed");
@@ -299,21 +299,21 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
                 goto err;
             }
             current_folder = (char *)ptr;
-            log_print(TRACE, "method_open_file: option current_folder = %s", current_folder);
+            log_print(DEBUG, "method_open_file: option current_folder = %s", current_folder);
         } else if (strcmp(key, "multiple") == 0) {
             if ((ret = sd_bus_message_read(msg, "v", "b", &multiple)) < 0) {
                 log_print(ERROR, "method_open_file: sd_bus_message_read() failed");
                 goto err;
             }
-            log_print(TRACE, "method_open_file: option multiple = %d", multiple);
+            log_print(DEBUG, "method_open_file: option multiple = %d", multiple);
         } else if (strcmp(key, "directory") == 0) {
             if ((ret = sd_bus_message_read(msg, "v", "b", &directory)) < 0) {
                 log_print(ERROR, "method_open_file: sd_bus_message_read() failed");
                 goto err;
             }
-            log_print(TRACE, "method_open_file: option directory = %d", directory);
+            log_print(DEBUG, "method_open_file: option directory = %d", directory);
         } else {
-            log_print(TRACE, "method_open_file: option %s IGNORED", key);
+            log_print(DEBUG, "method_open_file: option %s IGNORED", key);
             if ((ret = sd_bus_message_skip(msg, "v")) < 0) {
                 log_print(ERROR, "method_open_file: sd_bus_message_skip() failed");
                 goto err;
