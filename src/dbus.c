@@ -3,11 +3,6 @@
 #include "filechooser.h"
 #include "log.h"
 
-/*
- * TODO: I should also probably add a Close request handler
- * https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.impl.portal.Request.html
- */
-
 static const sd_bus_vtable filechooser_vtable[] = {
     SD_BUS_VTABLE_START(0),
     SD_BUS_METHOD("OpenFile", "osssa{sv}", "ua{sv}", method_open_file, SD_BUS_VTABLE_UNPRIVILEGED),
