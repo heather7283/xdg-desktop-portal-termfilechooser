@@ -130,12 +130,12 @@ static int request_fd_event_handler(struct event_loop *loop, struct event_loop_i
 
     if (bytes_read == -1) {
         log_print(ERROR, "failed to read from pipe (fd %d): %s", request->pipe_fd, strerror(errno));
-        event_loop_remove_item(loop, item);
+        event_loop_remove_item(item);
         send_response_error(request);
         return -1;
     } else if (bytes_read == 0) {
         log_print(DEBUG, "EOF on pipe fd %d", request->pipe_fd);
-        event_loop_remove_item(loop, item);
+        event_loop_remove_item(item);
 
         ds_append_bytes(&request->buffer, "", sizeof(""));
         /* TODO: check number of uris returned when only one uri is needed */

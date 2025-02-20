@@ -31,17 +31,18 @@ void event_loop_cleanup(struct event_loop *loop) {
 
     struct event_loop_item *item, *item_tmp;
     LIST_FOREACH_SAFE(item, &loop->items, link, item_tmp) {
-        event_loop_remove_item(loop, item);
+        event_loop_remove_item(item);
     }
 
     close(loop->epoll_fd);
 }
 
-void event_loop_add_item(struct event_loop *loop, int fd,
-                         event_loop_callback callback, void *data) {
+struct event_loop_item *event_loop_add_item(struct event_loop *loop, int fd,
+                                            event_loop_callback callback, void *data) {
     log_print(DEBUG, "event loop: adding fd %d to event loop", fd);
 
     struct event_loop_item *new_item = xmalloc(sizeof(*new_item));
+    new_item->loop = loop;
     new_item->fd = fd;
     new_item->callback = callback;
     new_item->data = data;
@@ -54,15 +55,17 @@ void event_loop_add_item(struct event_loop *loop, int fd,
     }
 
     LIST_INSERT_HEAD(&loop->items, new_item, link);
+
+    return new_item;
 }
 
-void event_loop_remove_item(struct event_loop *loop, struct event_loop_item *item) {
+void event_loop_remove_item(struct event_loop_item *item) {
     log_print(DEBUG, "event loop: removing fd %d from event loop", item->fd);
 
     LIST_REMOVE(item, link);
 
     if (fd_is_valid(item->fd)) {
-        if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_DEL, item->fd, NULL) < 0) {
+        if (epoll_ctl(item->loop->epoll_fd, EPOLL_CTL_DEL, item->fd, NULL) < 0) {
             die("event loop: failed to remove fd %d from epoll (%s)", item->fd, strerror(errno));
         }
         close(item->fd);

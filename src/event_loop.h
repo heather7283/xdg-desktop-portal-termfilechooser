@@ -11,6 +11,8 @@ struct event_loop_item;
 typedef int (*event_loop_callback)(struct event_loop *loop, struct event_loop_item *item);
 
 struct event_loop_item {
+    struct event_loop *loop;
+
     int fd;
     void *data;
     event_loop_callback callback;
@@ -27,8 +29,9 @@ struct event_loop {
 
 void event_loop_init(struct event_loop *loop);
 void event_loop_cleanup(struct event_loop *loop);
-void event_loop_add_item(struct event_loop *loop, int fd, event_loop_callback callback, void *data);
-void event_loop_remove_item(struct event_loop *loop, struct event_loop_item *item);
+struct event_loop_item *event_loop_add_item(struct event_loop *loop, int fd,
+                                            event_loop_callback callback, void *data);
+void event_loop_remove_item(struct event_loop_item *item);
 void event_loop_run(struct event_loop *loop);
 void event_loop_quit(struct event_loop *loop);
 
