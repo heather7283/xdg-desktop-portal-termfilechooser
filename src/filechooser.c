@@ -137,7 +137,6 @@ static int request_fd_event_handler(struct event_loop *loop, struct event_loop_i
         log_print(DEBUG, "EOF on pipe fd %d", request->pipe_fd);
         event_loop_remove_item(loop, item);
 
-        /* make sure buf ends with \0, TODO: ensure this inside da (rename to ds?) */
         ds_append_bytes(&request->buffer, "", sizeof(""));
         /* TODO: check number of uris returned when only one uri is needed */
         char **uris;
