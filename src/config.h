@@ -7,7 +7,6 @@ struct xdptf_config {
     char *picker_cmd;
     char *default_dir;
     enum log_loglevel loglevel;
-    bool replace;
 };
 
 /* if path is not NULL it will ignore default locations and try to parse file at path */

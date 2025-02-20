@@ -49,7 +49,7 @@ void dbus_init(struct xdptf *xdptf, bool replace) {
     }
 
     uint64_t flags = SD_BUS_NAME_ALLOW_REPLACEMENT;
-    if (xdptf->config.replace) {
+    if (replace) {
         flags |= SD_BUS_NAME_REPLACE_EXISTING;
     }
     if ((ret = sd_bus_request_name(xdptf->sd_bus, service_name, flags)) < 0) {
