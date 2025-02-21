@@ -12,6 +12,13 @@ I decided to write this when my GTK theme suddenly broke for no reason and
 I got flashbanged by light theme GTK filepicker. I now have permanent retina
 damage.
 
+## Features
+Supports SaveFile and OpenFile methods. There's currently no support for
+SaveFiles method, since that would require me to pass all the filenames to
+the picker script through another pipe, and then resolve all the potential
+overwrites... That said, I haven't encountered an app that uses SaveFiles so
+far, so I'd say the portal is mostly usable in its current state.
+
 ## Compile
 Prerequisites: sd-bus (either of libsystemd, libelogind, or basu).
 ```sh
