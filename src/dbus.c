@@ -19,19 +19,21 @@ static int handle_name_lost(sd_bus_message *msg, void *data, sd_bus_error *ret_e
     return 1;
 }
 
-void dbus_init(struct xdptf *xdptf, bool replace) {
+int dbus_init(struct xdptf *xdptf, bool replace) {
     static const char service_name[] = "org.freedesktop.impl.portal.desktop.termfilechooser";
     static const char object_path[] = "/org/freedesktop/portal/desktop";
 
     int ret = 0;
 
     if ((ret = sd_bus_open_user(&xdptf->sd_bus)) < 0) {
-        die("dbus: failed to connect to user bus: %s", strerror(-ret));
+        log_print(ERROR, "dbus: failed to connect to user bus: %s", strerror(-ret));
+        return ret;
     }
     log_print(INFO, "connected to dbus");
 
     if ((ret = xdptf->sd_bus_fd = sd_bus_get_fd(xdptf->sd_bus)) < 0) {
-        die("dbus: failed to get dbus fd: %s", strerror(-ret));
+        log_print(ERROR, "dbus: failed to get dbus fd: %s", strerror(-ret));
+        return ret;
     }
 
     static const char filechooser_interface_name[] = "org.freedesktop.impl.portal.FileChooser";
@@ -40,7 +42,8 @@ void dbus_init(struct xdptf *xdptf, bool replace) {
                                    object_path, filechooser_interface_name,
                                    filechooser_vtable, xdptf);
     if (ret < 0) {
-        die("failed to add filechooser vtable: %s", strerror(-ret));
+        log_print(ERROR, "failed to add filechooser vtable: %s", strerror(-ret));
+        return ret;
     }
 
     uint64_t flags = SD_BUS_NAME_ALLOW_REPLACEMENT;
@@ -48,12 +51,14 @@ void dbus_init(struct xdptf *xdptf, bool replace) {
         flags |= SD_BUS_NAME_REPLACE_EXISTING;
     }
     if ((ret = sd_bus_request_name(xdptf->sd_bus, service_name, flags)) < 0) {
-        die("dbus: failed to acquire service name: %s", strerror(-ret));
+        log_print(ERROR, "dbus: failed to acquire service name: %s", strerror(-ret));
+        return ret;
     }
 
     const char *unique_name;
     if ((ret = sd_bus_get_unique_name(xdptf->sd_bus, &unique_name)) < 0) {
-        die("dbus: failed to get unique bus name: %s", strerror(-ret));
+        log_print(ERROR, "dbus: failed to get unique bus name: %s", strerror(-ret));
+        return ret;
     }
     log_print(INFO, "got unique name: %s", unique_name);
 
@@ -70,8 +75,11 @@ void dbus_init(struct xdptf *xdptf, bool replace) {
 
     if ((ret = sd_bus_add_match(xdptf->sd_bus, &xdptf->name_owner_changed_slot,
                                 match, handle_name_lost, xdptf)) < 0) {
-        die("dbus: failed to add NameOwnerChanged signal match: %s", strerror(-ret));
+        log_print(ERROR, "dbus: failed to add NameOwnerChanged signal match: %s", strerror(-ret));
+        return ret;
     }
+
+    return 0;
 }
 
 void dbus_cleanup(struct xdptf *xdptf) {

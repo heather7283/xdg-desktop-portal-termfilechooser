@@ -3,6 +3,7 @@
 #include <limits.h>
 #include <string.h>
 #include <errno.h>
+#include <stdlib.h>
 
 #include "config.h"
 #include "log.h"

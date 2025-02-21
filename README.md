@@ -20,7 +20,7 @@ meson compile -C build
 ```
 
 ## Usage
-TODO: write this section
+See [examples/lf-wrapper.sh](examples/lf-wrapper.sh) for example file picker implementation.
 
 ## License
 This program is free software: you can redistribute it and/or modify
