@@ -1,8 +1,6 @@
 #ifndef FILECHOOSER_H
 #define FILECHOOSER_H
 
-#include <stdbool.h>
-
 #include "thirdparty/queue.h"
 #include "sd-bus.h"
 #include "ds.h"

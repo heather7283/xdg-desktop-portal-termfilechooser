@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "event_loop.h"
 #include "xmalloc.h"
@@ -22,7 +23,7 @@ void event_loop_init(struct event_loop *loop) {
 
     loop->epoll_fd = epoll_create1(EPOLL_CLOEXEC);
     if (loop->epoll_fd < 0) {
-        die("event loop: failed to create epoll");
+        log_print(ERROR, "event loop: failed to create epoll");
     }
 }
 
@@ -51,7 +52,8 @@ struct event_loop_item *event_loop_add_item(struct event_loop *loop, int fd,
     epoll_event.events = EPOLLIN;
     epoll_event.data.fd = fd;
     if (epoll_ctl(loop->epoll_fd, EPOLL_CTL_ADD, fd, &epoll_event) < 0) {
-        die("event loop: failed to add fd %d to epoll (%s)", fd, strerror(errno));
+        log_print(ERROR, "event loop: failed to add fd %d to epoll (%s)", fd, strerror(errno));
+        event_loop_quit(loop);
     }
 
     LIST_INSERT_HEAD(&loop->items, new_item, link);
@@ -66,7 +68,9 @@ void event_loop_remove_item(struct event_loop_item *item) {
 
     if (fd_is_valid(item->fd)) {
         if (epoll_ctl(item->loop->epoll_fd, EPOLL_CTL_DEL, item->fd, NULL) < 0) {
-            die("event loop: failed to remove fd %d from epoll (%s)", item->fd, strerror(errno));
+            log_print(ERROR, "event loop: failed to remove fd %d from epoll (%s)",
+                      item->fd, strerror(errno));
+            event_loop_quit(item->loop);
         }
         close(item->fd);
     } else {
@@ -90,7 +94,9 @@ void event_loop_run(struct event_loop *loop) {
         } while (number_fds == -1 && errno == EINTR); /* epoll_wait failing with EINTR is normal */
 
         if (number_fds == -1) {
-            die("event loop: epoll_wait error (%s)", strerror(errno));
+            log_print(ERROR, "event loop: epoll_wait error (%s)", strerror(errno));
+            loop->running = false;
+            goto out;
         }
 
         log_print(DEBUG, "event loop: received events on %d fds", number_fds);
@@ -114,7 +120,8 @@ void event_loop_run(struct event_loop *loop) {
             }
 
             if (!match_found) {
-                die("event loop: no handlers were found for fd %d", events[n].data.fd);
+                log_print(WARN, "event loop: no handlers were found for fd %d (BUG)",
+                          events[n].data.fd);
             }
         }
     }

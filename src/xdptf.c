@@ -159,7 +159,11 @@ int main(int argc, char **argv) {
         log_init(stderr, xdptf.config.loglevel);
     }
 
-    dbus_init(&xdptf, replace);
+    if (dbus_init(&xdptf, replace) < 0) {
+        log_print(ERROR, "failed to initialise dbus");
+        retcode = 1;
+        goto cleanup;
+    }
 
     signal_fd = signalfd_init();
 

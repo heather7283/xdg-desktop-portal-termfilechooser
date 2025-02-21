@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "picker.h"
 #include "filechooser.h"
@@ -73,10 +74,12 @@ int exec_picker(const char *exe,
             break;
         }
         case SAVE_FILES:
-            die("TODO: not implemented exec_picker() for this request type");
+            log_print(ERROR, "TODO: not implemented exec_picker() for this request type");
+            abort();
             break;
         default:
-            die("UNREACHABLE: illegal request type");
+            log_print(ERROR, "UNREACHABLE: illegal request type");
+            abort();
         }
 
         /* exec only returns on error */
