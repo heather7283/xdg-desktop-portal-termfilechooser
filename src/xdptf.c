@@ -178,9 +178,7 @@ cleanup:
     dbus_cleanup(&xdptf);
     event_loop_cleanup(&xdptf.event_loop);
     config_cleanup(&xdptf.config);
-    if (config_path != NULL) {
-        free(config_path);
-    }
+    free(config_path);
 
     return retcode;
 }

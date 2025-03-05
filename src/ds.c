@@ -34,9 +34,7 @@ void ds_append_bytes(struct ds *ds, const void *data, size_t data_len) {
 
 /* free the dynamic string */
 void ds_free(struct ds *ds) {
-    if (ds->data != NULL) {
-        free(ds->data);
-    }
+    free(ds->data);
     ds->data = NULL;
     ds->length = 0;
     ds->capacity = 0;
