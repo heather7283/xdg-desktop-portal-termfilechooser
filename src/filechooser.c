@@ -421,12 +421,9 @@ void filechooser_request_cleanup(struct filechooser_request *request) {
         sd_bus_slot_unref(request->slot);
     }
 
-    /* you can never have too many NULL checks */
     if (request->response.uris != NULL) {
         for (int i = 0; i < request->response.n_uris; i++) {
-            if (request->response.uris[i] != NULL) {
-                free(request->response.uris[i]);
-            }
+            free(request->response.uris[i]);
         }
         free(request->response.uris);
     }

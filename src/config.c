@@ -144,9 +144,7 @@ static int config_parse_file(struct xdptf_config *config, const char *path) {
     }
 
 out:
-    if (line != NULL) {
-        free(line);
-    }
+    free(line);
     if (f != NULL) {
         fclose(f);
     }
@@ -219,11 +217,7 @@ int config_init(struct xdptf_config *config, const char *path) {
 }
 
 void config_cleanup(struct xdptf_config *config) {
-    if (config->default_dir != NULL) {
-        free(config->default_dir);
-    }
-    if (config->picker_cmd != NULL) {
-        free(config->picker_cmd);
-    }
+    free(config->default_dir);
+    free(config->picker_cmd);
 }
 
