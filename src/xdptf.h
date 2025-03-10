@@ -2,11 +2,11 @@
 #define XDPTF_H
 
 #include "config.h"
-#include "event_loop.h"
+#include "thirdparty/event_loop.h"
 
 struct xdptf {
     struct xdptf_config config;
-    struct event_loop event_loop;
+    struct event_loop *event_loop;
 
     struct sd_bus *sd_bus;
     int sd_bus_fd;

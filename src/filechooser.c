@@ -153,8 +153,8 @@ cleanup:
     return ret;
 }
 
-static int request_fd_event_handler(struct event_loop *loop, struct event_loop_item *item) {
-    struct filechooser_request *request = item->data;
+static int request_fd_event_handler(struct event_loop_item *item, uint32_t events) {
+    struct filechooser_request *request = event_loop_item_get_data(item);
 
     static char buf[4096];
     ssize_t bytes_read;
@@ -285,8 +285,9 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
 
     LIST_INSERT_HEAD(&requests, new_request, link);
 
-    new_request->event_loop_item = event_loop_add_item(&xdptf->event_loop, new_request->pipe_fd,
-                                                       request_fd_event_handler, new_request);
+    new_request->event_loop_item = event_loop_add_pollable(xdptf->event_loop,
+                                                           new_request->pipe_fd, EPOLLIN, true,
+                                                           request_fd_event_handler, new_request);
 
     return 1; /* async */
 
@@ -401,8 +402,9 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
 
     LIST_INSERT_HEAD(&requests, new_request, link);
 
-    new_request->event_loop_item = event_loop_add_item(&xdptf->event_loop, new_request->pipe_fd,
-                                                       request_fd_event_handler, new_request);
+    new_request->event_loop_item = event_loop_add_pollable(xdptf->event_loop,
+                                                           new_request->pipe_fd, EPOLLIN, true,
+                                                           request_fd_event_handler, new_request);
 
     return 1; /* async */
 
@@ -414,7 +416,7 @@ void filechooser_request_cleanup(struct filechooser_request *request) {
     LIST_REMOVE(request, link);
 
     if (request->event_loop_item != NULL) {
-        event_loop_remove_item(request->event_loop_item);
+        event_loop_remove_callback(request->event_loop_item);
     }
 
     if (request->slot != NULL) {

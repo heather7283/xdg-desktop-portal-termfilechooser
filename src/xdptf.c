@@ -9,7 +9,6 @@
 
 #include "xdptf.h"
 #include "filechooser.h"
-#include "event_loop.h"
 #include "dbus.h"
 #include "xmalloc.h"
 #include "log.h"
@@ -29,8 +28,8 @@ static void print_usage_and_exit(FILE *stream, int retcode) {
     exit(retcode);
 }
 
-int dbus_event_handler(struct event_loop *loop, struct event_loop_item *item) {
-    struct sd_bus *bus = item->data;
+int dbus_event_handler(struct event_loop_item *item, uint32_t events) {
+    struct sd_bus *bus = event_loop_item_get_data(item);
 
     log_print(DEBUG, "processing dbus events");
     int ret;
@@ -42,56 +41,27 @@ int dbus_event_handler(struct event_loop *loop, struct event_loop_item *item) {
     return 0;
 }
 
-int signals_handler(struct event_loop *loop, struct event_loop_item *item) {
-    log_print(DEBUG, "processing signals");
-    struct signalfd_siginfo siginfo;
-    if (read(item->fd, &siginfo, sizeof(siginfo)) != sizeof(siginfo)) {
-        log_print(ERROR, "failed to read signalfd_siginfo from signalfd: %s", strerror(errno));
-        return -1;
-    }
+int sigint_sigterm_handler(struct event_loop_item *item, int signal) {
+    log_print(INFO, "caught signal %d, exiting", signal);
 
-    switch (siginfo.ssi_signo) {
-    case SIGINT:
-        log_print(INFO, "caught SIGINT, stopping main loop");
-        event_loop_quit(loop);
-        break;
-    case SIGTERM:
-        log_print(INFO, "caught SIGTERM, stopping main loop");
-        event_loop_quit(loop);
-        break;
-    case SIGCHLD:
-        log_print(DEBUG, "caught SIGCHLD, running reaper");
-        pid_t pid;
-        while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
-            log_print(DEBUG, "reaped zombie with pid %d", pid);
-        }
+    event_loop_quit(event_loop_item_get_loop(item), 0);
+
+    return 0;
+}
+
+int sigchld_handler(struct event_loop_item *item, int signal) {
+    log_print(DEBUG, "caught SIGCHLD %d, running reaper", signal);
+
+    pid_t pid;
+    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
+        log_print(DEBUG, "reaped zombie with pid %d", pid);
     }
 
     return 0;
 }
 
-int signalfd_init(void) {
-    int fd;
-
-    sigset_t mask;
-    sigemptyset(&mask);
-    sigaddset(&mask, SIGINT);
-    sigaddset(&mask, SIGTERM);
-    sigaddset(&mask, SIGCHLD);
-    if (sigprocmask(SIG_BLOCK, &mask, NULL) < 0) {
-        die("failed to block signals: %s", strerror(errno));
-    }
-
-    if ((fd = signalfd(-1, &mask, SFD_CLOEXEC)) < 0) {
-        die("failed to set up signalfd: %s", strerror(errno));
-    }
-
-    return fd;
-}
-
 int main(int argc, char **argv) {
     int retcode = 0;
-    int signal_fd = -1;
 
     struct xdptf xdptf = {0};
 
@@ -165,18 +135,24 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    signal_fd = signalfd_init();
+    xdptf.event_loop = event_loop_create();
+    if (xdptf.event_loop == NULL) {
+        log_print(ERROR, "failed to create event loop");
+        retcode = 1;
+        goto cleanup;
+    }
+    event_loop_add_pollable(xdptf.event_loop, xdptf.sd_bus_fd, EPOLLIN, false,
+                            dbus_event_handler, xdptf.sd_bus);
+    event_loop_add_signal(xdptf.event_loop, SIGINT, sigint_sigterm_handler, NULL);
+    event_loop_add_signal(xdptf.event_loop, SIGTERM, sigint_sigterm_handler, NULL);
+    event_loop_add_signal(xdptf.event_loop, SIGCHLD, sigchld_handler, NULL);
 
-    event_loop_init(&xdptf.event_loop);
-    event_loop_add_item(&xdptf.event_loop, xdptf.sd_bus_fd, dbus_event_handler, xdptf.sd_bus);
-    event_loop_add_item(&xdptf.event_loop, signal_fd, signals_handler, NULL);
-
-    event_loop_run(&xdptf.event_loop);
+    retcode = event_loop_run(xdptf.event_loop);
 
 cleanup:
     filechooser_requests_cleanup();
     dbus_cleanup(&xdptf);
-    event_loop_cleanup(&xdptf.event_loop);
+    event_loop_cleanup(xdptf.event_loop);
     config_cleanup(&xdptf.config);
     free(config_path);
 
