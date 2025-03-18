@@ -76,12 +76,7 @@ int get_uris_from_string(char *str, char ***res) {
             *p = '\0'; /* replace newline with null terminator */
 
             char *uri;
-            /* if line starts with file://, assume that it's already a valid uri */
-            if (strncmp(line_start, "file://", sizeof("file://")) == 0) {
-                uri = xstrdup(line_start);
-            } else {
-                uri = uri_encode(line_start);
-            }
+            uri = uri_encode(line_start);
 
             uris[i++] = uri;
             line_start = p + 1;
