@@ -19,8 +19,6 @@ enum {
     PORTAL_RESPONSE_ENDED = 2
 };
 
-static LIST_HEAD(requests, filechooser_request) requests = LIST_HEAD_INITIALIZER(requests);
-
 static const char interface_name[] = "org.freedesktop.impl.portal.Request";
 
 static int method_close(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
@@ -60,22 +58,21 @@ static int send_response_error(struct filechooser_request *request) {
 
     if ((ret = sd_bus_message_append(reply, "u", PORTAL_RESPONSE_ENDED, 1)) < 0) {
         log_print(ERROR, "sd_bus_message_append() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_open_container(reply, 'a', "{sv}")) < 0) {
         log_print(ERROR, "sd_bus_message_open_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_close_container(reply)) < 0) {
         log_print(ERROR, "sd_bus_message_close_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_send(NULL, reply, NULL)) < 0) {
         log_print(ERROR, "sd_bus_send() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
-cleanup:
-    filechooser_request_cleanup(request);
+out:
     return ret;
 }
 
@@ -85,22 +82,21 @@ static int send_response_cancelled(struct filechooser_request *request) {
 
     if ((ret = sd_bus_message_append(reply, "u", PORTAL_RESPONSE_CANCELLED, 1)) < 0) {
         log_print(ERROR, "sd_bus_message_append() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_open_container(reply, 'a', "{sv}")) < 0) {
         log_print(ERROR, "sd_bus_message_open_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_close_container(reply)) < 0) {
         log_print(ERROR, "sd_bus_message_close_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_send(NULL, reply, NULL)) < 0) {
         log_print(ERROR, "sd_bus_send() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
-cleanup:
-    filechooser_request_cleanup(request);
+out:
     return ret;
 }
 
@@ -110,46 +106,66 @@ static int send_response_success(struct filechooser_request *request) {
 
     if ((ret = sd_bus_message_append(reply, "u", PORTAL_RESPONSE_SUCCESS, 1)) < 0) {
         log_print(ERROR, "sd_bus_message_append() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_open_container(reply, 'a', "{sv}")) < 0) {
         log_print(ERROR, "sd_bus_message_open_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_open_container(reply, 'e', "sv")) < 0) {
         log_print(ERROR, "sd_bus_message_open_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_append_basic(reply, 's', "uris")) < 0) {
         log_print(ERROR, "sd_bus_message_append_basic() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_open_container(reply, 'v', "as")) < 0) {
         log_print(ERROR, "sd_bus_message_open_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_append_strv(reply, request->response.uris)) < 0) {
         log_print(ERROR, "sd_bus_message_append_strv() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_close_container(reply)) < 0) {
         log_print(ERROR, "sd_bus_message_close_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_close_container(reply)) < 0) {
         log_print(ERROR, "sd_bus_message_close_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_message_close_container(reply)) < 0) {
         log_print(ERROR, "sd_bus_message_close_container() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
     if ((ret = sd_bus_send(NULL, reply, NULL)) < 0) {
         log_print(ERROR, "sd_bus_send() failed: %s", strerror(-ret));
-        goto cleanup;
+        goto out;
     }
-cleanup:
+out:
+    return ret;
+}
+
+int filechooser_request_finalize(struct filechooser_request *request) {
+    /* TODO: check number of uris returned when only one uri is needed */
+    char **uris;
+    int n_uris = get_uris_from_string(request->buffer.data, &uris);
+
+    log_print(DEBUG, "got %d uris", n_uris);
+
+    int ret;
+    if (n_uris == 0) {
+        ret = send_response_cancelled(request);
+    } else {
+        request->response.n_uris = n_uris;
+        request->response.uris = uris;
+        ret = send_response_success(request);
+    }
+
     filechooser_request_cleanup(request);
+
     return ret;
 }
 
@@ -158,34 +174,25 @@ static int request_fd_event_handler(struct event_loop_item *item, uint32_t event
 
     static char buf[4096];
     ssize_t bytes_read;
-    while ((bytes_read = read(request->pipe_fd, buf, sizeof(buf))) > 0) {
-        ds_append_bytes(&request->buffer, buf, bytes_read);
-    }
-
-    if (bytes_read == -1) {
-        log_print(ERROR, "failed to read from pipe (fd %d): %s", request->pipe_fd, strerror(errno));
-        send_response_error(request);
-        return -1;
-    } else if (bytes_read == 0) {
-        log_print(DEBUG, "EOF on pipe fd %d", request->pipe_fd);
-
-        ds_append_bytes(&request->buffer, "", sizeof(""));
-        /* TODO: check number of uris returned when only one uri is needed */
-        char **uris;
-        int n_uris = get_uris_from_string(request->buffer.data, &uris);
-
-        log_print(DEBUG, "got %d uris", n_uris);
-
-        if (n_uris == 0) {
-            return send_response_cancelled(request);
+    while (true) {
+        bytes_read = read(request->pipe_fd, buf, sizeof(buf));
+        if (bytes_read > 0) {
+            ds_append_bytes(&request->buffer, buf, bytes_read);
+        } else if (bytes_read == 0) {
+            /* EOF */
+            log_print(DEBUG, "EOF on pipe fd %d", request->pipe_fd);
+            return filechooser_request_finalize(request);
+        } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
+            /* no more data to read */
+            return 0;
         } else {
-            request->response.n_uris = n_uris;
-            request->response.uris = uris;
-            return send_response_success(request);
+            log_print(ERROR, "failed to read from pipe (fd %d): %s",
+                      request->pipe_fd, strerror(errno));
+            send_response_error(request);
+            filechooser_request_cleanup(request);
+            return -1;
         }
     }
-
-    return 0;
 }
 
 int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
@@ -283,7 +290,7 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
         goto err;
     }
 
-    LIST_INSERT_HEAD(&requests, new_request, link);
+    LIST_INSERT_HEAD(&xdptf->requests, new_request, link);
 
     new_request->event_loop_item = event_loop_add_pollable(xdptf->event_loop,
                                                            new_request->pipe_fd, EPOLLIN, true,
@@ -400,7 +407,7 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
         goto err;
     }
 
-    LIST_INSERT_HEAD(&requests, new_request, link);
+    LIST_INSERT_HEAD(&xdptf->requests, new_request, link);
 
     new_request->event_loop_item = event_loop_add_pollable(xdptf->event_loop,
                                                            new_request->pipe_fd, EPOLLIN, true,
@@ -437,12 +444,5 @@ void filechooser_request_cleanup(struct filechooser_request *request) {
     ds_free(&request->buffer);
 
     free(request);
-}
-
-void filechooser_requests_cleanup(void) {
-    struct filechooser_request *request, *request_tmp;
-    LIST_FOREACH_SAFE(request, &requests, link, request_tmp) {
-        filechooser_request_cleanup(request);
-    };
 }
 
