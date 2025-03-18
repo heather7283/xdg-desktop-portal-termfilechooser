@@ -169,7 +169,6 @@ static int request_fd_event_handler(struct event_loop_item *item, uint32_t event
     } else if (bytes_read == 0) {
         log_print(DEBUG, "EOF on pipe fd %d", request->pipe_fd);
 
-        ds_append_bytes(&request->buffer, "", sizeof(""));
         /* TODO: check number of uris returned when only one uri is needed */
         char **uris;
         int n_uris = get_uris_from_string(request->buffer.data, &uris);
