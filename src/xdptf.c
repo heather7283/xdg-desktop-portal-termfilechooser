@@ -50,11 +50,25 @@ int sigint_sigterm_handler(struct event_loop_item *item, int signal) {
 }
 
 int sigchld_handler(struct event_loop_item *item, int signal) {
+    struct xdptf *xdptf = event_loop_item_get_data(item);
+
     log_print(DEBUG, "caught SIGCHLD %d, running reaper", signal);
 
     pid_t pid;
-    while ((pid = waitpid(-1, NULL, WNOHANG)) > 0) {
-        log_print(DEBUG, "reaped zombie with pid %d", pid);
+    int wstatus;
+    while ((pid = waitpid(-1, &wstatus, WNOHANG)) > 0) {
+        if (!WIFEXITED(wstatus) && !WIFSIGNALED(wstatus)) {
+            continue;
+        }
+
+        log_print(DEBUG, "child %d exited", pid);
+        struct filechooser_request *request, *request_tmp;
+        LIST_FOREACH_SAFE(request, &xdptf->requests, link, request_tmp) {
+            if (request->picker_pid == pid) {
+                log_print(DEBUG, "found request associated with child %d, finalizing it", pid);
+                filechooser_request_finalize(request);
+            }
+        }
     }
 
     return 0;
@@ -145,12 +159,16 @@ int main(int argc, char **argv) {
                             dbus_event_handler, xdptf.sd_bus);
     event_loop_add_signal(xdptf.event_loop, SIGINT, sigint_sigterm_handler, NULL);
     event_loop_add_signal(xdptf.event_loop, SIGTERM, sigint_sigterm_handler, NULL);
-    event_loop_add_signal(xdptf.event_loop, SIGCHLD, sigchld_handler, NULL);
+    event_loop_add_signal(xdptf.event_loop, SIGCHLD, sigchld_handler, &xdptf);
 
     retcode = event_loop_run(xdptf.event_loop);
 
-cleanup:
-    filechooser_requests_cleanup();
+cleanup: {} /* Label followed by a declaration is a C23 extension */
+    struct filechooser_request *request, *request_tmp;
+    LIST_FOREACH_SAFE(request, &xdptf.requests, link, request_tmp) {
+        filechooser_request_cleanup(request);
+    };
+
     dbus_cleanup(&xdptf);
     event_loop_cleanup(xdptf.event_loop);
     config_cleanup(&xdptf.config);

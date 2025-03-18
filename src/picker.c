@@ -1,3 +1,4 @@
+#include <fcntl.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
@@ -20,6 +21,21 @@ int exec_picker(const char *exe,
     if (pipe(pipe_fds) < 0) {
         ret = -errno;
         log_print(ERROR, "failed to create pipe: %s", strerror(errno));
+        goto err;
+    }
+
+    int flags = fcntl(pipe_fds[PIPE_READING_END], F_GETFL, 0);
+    if (flags < 0) {
+        ret = -errno;
+        log_print(ERROR, "fcntl() on fd %d failed: %s",
+                  pipe_fds[PIPE_READING_END], strerror(errno));
+        goto err;
+    }
+
+    if (fcntl(pipe_fds[PIPE_READING_END], F_SETFL, flags | O_NONBLOCK) < 0) {
+        ret = -errno;
+        log_print(ERROR, "failed to set O_NONBLOCK on fd %d: %s",
+                  pipe_fds[PIPE_READING_END], strerror(errno));
         goto err;
     }
 

@@ -48,6 +48,11 @@ static char *uri_encode(const char *str) {
  * if number of items is 0, do not free the array!
  */
 int get_uris_from_string(char *str, char ***res) {
+    if (str == NULL) {
+        *res = NULL;
+        return 0;
+    }
+
     char **uris;
 
     /*
