@@ -62,24 +62,24 @@ int exec_picker(const char *exe,
         /* child */
         close(pipe_fds[PIPE_READING_END]);
 
+        if (dup2(pipe_fds[PIPE_WRITING_END], 4) < 0) {
+            log_print(ERROR, "picker: failed to duplicate pipe fd to fd 4: %s", strerror(errno));
+            exit(1);
+        };
+        close(pipe_fds[PIPE_WRITING_END]);
+
         if (setpgid(0, 0) < 0) {
             log_print(WARN, "setpgid() failed: %s, won't be able to kill picker", strerror(errno));
         }
-
-        /* INT_MAX is 2147483647 (10 chars) + null terminator = 11 */
-        char pipe_fd_string[11];
-        snprintf(pipe_fd_string, sizeof(pipe_fd_string) / sizeof(pipe_fd_string[0]),
-                 "%d", pipe_fds[PIPE_WRITING_END]);
 
         switch (request_type) {
         case SAVE_FILE: {
             struct save_file_request_data *data = request_data;
             const char *current_name = data->current_name;
             const char *current_folder = data->current_folder;
-            log_print(DEBUG, "picker: executing %s %s %d %s %s",
-                      exe, pipe_fd_string, SAVE_FILE, current_folder, current_name);
+            log_print(DEBUG, "picker: executing %s %d %s %s",
+                      exe, SAVE_FILE, current_folder, current_name);
             execlp(exe, exe,
-                   pipe_fd_string,
                    "0", /* SAVE_FILE */
                    (current_folder != NULL) ? current_folder : "/tmp",
                    (current_name != NULL) ? current_name : "FALLBACK_FILENAME",
@@ -91,10 +91,9 @@ int exec_picker(const char *exe,
             const char *current_folder = data->current_folder;
             int multiple = data->multiple;
             int directory = data->directory;
-            log_print(DEBUG, "picker: executing %s %s %d %s %d %d",
-                      exe, pipe_fd_string, OPEN_FILE, current_folder, multiple, directory);
+            log_print(DEBUG, "picker: executing %s %d %s %d %d",
+                      exe, OPEN_FILE, current_folder, multiple, directory);
             execlp(exe, exe,
-                   pipe_fd_string,
                    "2", /* OPEN_FILE */
                    (current_folder != NULL) ? current_folder : "/tmp",
                    multiple ? "1" : "0",
