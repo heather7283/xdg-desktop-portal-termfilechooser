@@ -99,7 +99,7 @@ executable('xdg-desktop-portal-termfilechooser',
     'src/xmalloc.c',
     'src/ds.c',
     'src/config.c',
-    'src/event_loop_impl.c',
+    'src/pollen_impl.c',
     dependencies: [
         sdbus_dep,
         rt_dep,

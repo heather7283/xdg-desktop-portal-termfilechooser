@@ -169,25 +169,25 @@ int filechooser_request_finalize(struct filechooser_request *request) {
     return ret;
 }
 
-static int request_fd_event_handler(struct event_loop_item *item, uint32_t events) {
-    struct filechooser_request *request = event_loop_item_get_data(item);
+static int request_fd_event_handler(struct pollen_callback *callback,
+                                    int fd, uint32_t events, void *data) {
+    struct filechooser_request *request = data;
 
     static char buf[4096];
     ssize_t bytes_read;
     while (true) {
-        bytes_read = read(request->pipe_fd, buf, sizeof(buf));
+        bytes_read = read(fd, buf, sizeof(buf));
         if (bytes_read > 0) {
             ds_append_bytes(&request->buffer, buf, bytes_read);
         } else if (bytes_read == 0) {
             /* EOF */
-            log_print(DEBUG, "EOF on pipe fd %d", request->pipe_fd);
+            log_print(DEBUG, "EOF on pipe fd %d", fd);
             return filechooser_request_finalize(request);
         } else if (errno == EAGAIN || errno == EWOULDBLOCK) {
             /* no more data to read */
             return 0;
         } else {
-            log_print(ERROR, "failed to read from pipe (fd %d): %s",
-                      request->pipe_fd, strerror(errno));
+            log_print(ERROR, "failed to read from pipe (fd %d): %s", fd, strerror(errno));
             send_response_error(request);
             filechooser_request_cleanup(request);
             return -1;
@@ -292,9 +292,9 @@ int method_save_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
 
     LIST_INSERT_HEAD(&xdptf->requests, new_request, link);
 
-    new_request->event_loop_item = event_loop_add_pollable(xdptf->event_loop,
-                                                           new_request->pipe_fd, EPOLLIN, true,
-                                                           request_fd_event_handler, new_request);
+    new_request->event_loop_callback = pollen_loop_add_fd(xdptf->event_loop,
+                                                          new_request->pipe_fd, EPOLLIN, true,
+                                                          request_fd_event_handler, new_request);
 
     return 1; /* async */
 
@@ -409,9 +409,9 @@ int method_open_file(sd_bus_message *msg, void *data, sd_bus_error *ret_error) {
 
     LIST_INSERT_HEAD(&xdptf->requests, new_request, link);
 
-    new_request->event_loop_item = event_loop_add_pollable(xdptf->event_loop,
-                                                           new_request->pipe_fd, EPOLLIN, true,
-                                                           request_fd_event_handler, new_request);
+    new_request->event_loop_callback = pollen_loop_add_fd(xdptf->event_loop,
+                                                          new_request->pipe_fd, EPOLLIN, true,
+                                                          request_fd_event_handler, new_request);
 
     return 1; /* async */
 
@@ -422,8 +422,8 @@ err:
 void filechooser_request_cleanup(struct filechooser_request *request) {
     LIST_REMOVE(request, link);
 
-    if (request->event_loop_item != NULL) {
-        event_loop_remove_callback(request->event_loop_item);
+    if (request->event_loop_callback != NULL) {
+        pollen_loop_remove_callback(request->event_loop_callback);
     }
 
     if (request->slot != NULL) {

@@ -28,8 +28,8 @@ static void print_usage_and_exit(FILE *stream, int retcode) {
     exit(retcode);
 }
 
-int dbus_event_handler(struct event_loop_item *item, uint32_t events) {
-    struct sd_bus *bus = event_loop_item_get_data(item);
+int dbus_event_handler(struct pollen_callback *callback, int fd, uint32_t events, void *data) {
+    struct sd_bus *bus = data;
 
     log_print(DEBUG, "processing dbus events");
     int ret;
@@ -41,16 +41,16 @@ int dbus_event_handler(struct event_loop_item *item, uint32_t events) {
     return 0;
 }
 
-int sigint_sigterm_handler(struct event_loop_item *item, int signal) {
+int sigint_sigterm_handler(struct pollen_callback *callback, int signal, void *data) {
     log_print(INFO, "caught signal %d, exiting", signal);
 
-    event_loop_quit(event_loop_item_get_loop(item), 0);
+    pollen_loop_quit(pollen_callback_get_loop(callback), 0);
 
     return 0;
 }
 
-int sigchld_handler(struct event_loop_item *item, int signal) {
-    struct xdptf *xdptf = event_loop_item_get_data(item);
+int sigchld_handler(struct pollen_callback *callback, int signal, void *data) {
+    struct xdptf *xdptf = data;
 
     log_print(DEBUG, "caught SIGCHLD %d, running reaper", signal);
 
@@ -149,19 +149,19 @@ int main(int argc, char **argv) {
         goto cleanup;
     }
 
-    xdptf.event_loop = event_loop_create();
+    xdptf.event_loop = pollen_loop_create();
     if (xdptf.event_loop == NULL) {
         log_print(ERROR, "failed to create event loop");
         retcode = 1;
         goto cleanup;
     }
-    event_loop_add_pollable(xdptf.event_loop, xdptf.sd_bus_fd, EPOLLIN, false,
-                            dbus_event_handler, xdptf.sd_bus);
-    event_loop_add_signal(xdptf.event_loop, SIGINT, sigint_sigterm_handler, NULL);
-    event_loop_add_signal(xdptf.event_loop, SIGTERM, sigint_sigterm_handler, NULL);
-    event_loop_add_signal(xdptf.event_loop, SIGCHLD, sigchld_handler, &xdptf);
+    pollen_loop_add_fd(xdptf.event_loop, xdptf.sd_bus_fd, EPOLLIN, false,
+                       dbus_event_handler, xdptf.sd_bus);
+    pollen_loop_add_signal(xdptf.event_loop, SIGINT, sigint_sigterm_handler, NULL);
+    pollen_loop_add_signal(xdptf.event_loop, SIGTERM, sigint_sigterm_handler, NULL);
+    pollen_loop_add_signal(xdptf.event_loop, SIGCHLD, sigchld_handler, &xdptf);
 
-    retcode = event_loop_run(xdptf.event_loop);
+    retcode = pollen_loop_run(xdptf.event_loop);
 
 cleanup: {} /* Label followed by a declaration is a C23 extension */
     struct filechooser_request *request, *request_tmp;
@@ -170,7 +170,7 @@ cleanup: {} /* Label followed by a declaration is a C23 extension */
     };
 
     dbus_cleanup(&xdptf);
-    event_loop_cleanup(xdptf.event_loop);
+    pollen_loop_cleanup(xdptf.event_loop);
     config_cleanup(&xdptf.config);
     free(config_path);
 
