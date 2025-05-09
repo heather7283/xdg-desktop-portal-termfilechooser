@@ -37,7 +37,7 @@ struct open_file_request_data {
 struct filechooser_request {
     enum filechooser_request_type type;
     struct sd_bus_slot *slot;
-    struct event_loop_item *event_loop_item;
+    struct pollen_callback *event_loop_callback;
 
     struct {
         sd_bus_message *message;

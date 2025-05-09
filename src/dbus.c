@@ -1,4 +1,4 @@
-#include "thirdparty/event_loop.h"
+#include "thirdparty/pollen.h"
 #include "xdptf.h"
 #include "filechooser.h"
 #include "log.h"
@@ -15,7 +15,7 @@ static int handle_name_lost(sd_bus_message *msg, void *data, sd_bus_error *ret_e
 
     log_print(INFO, "dbus: lost name, closing connection");
 
-    event_loop_quit(xdptf->event_loop, 0);
+    pollen_loop_quit(xdptf->event_loop, 0);
     return 1;
 }
 
