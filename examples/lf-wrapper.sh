@@ -2,23 +2,19 @@
 
 set -x
 
-# $1 - File descriptor. Your script should write paths, each ending with newline, to this fd.
-# $2 - Request type. 0 is SaveFile, 1 is SaveFiles, 2 is OpenFile
+# $1 - Request type. 0 is SaveFile, 1 is SaveFiles, 2 is OpenFile
 # For SaveFile:
-#   $3 - Suggested folder in which the file should be saved.
-#   $4 - Suggested name of the file.
+#   $2 - Suggested folder in which the file should be saved.
+#   $3 - Suggested name of the file.
 # For OpenFile:
-#   $3 - Suggested folder from which the files should be opened.
-#   $4 - 1 if multiple files can be selected, 0 otherwise.
-#   $5 - 1 if folders should be selected instead of files, 0 otherwise.
+#   $2 - Suggested folder from which the files should be opened.
+#   $3 - 1 if multiple files can be selected, 0 otherwise.
+#   $4 - 1 if folders should be selected instead of files, 0 otherwise.
 #
-# NOTE: in this script I use "fdmove" program.
-# fdmove is a part of execline (https://skarnet.org/software/execline), and therefore
-# an external dependency. There just isn't a way to redirect fds greater than 10
-# in both bash and posix sh, and there's no guarantee pipe_fd will be smaller than 10.
+# Your script should write paths, each ending with newline, to fd 4.
 
 die() {
-    printf "$@" >&2
+    echo "$1" >&2
     exit 1
 }
 
@@ -46,13 +42,12 @@ Notes:
 EOF
 )"
 
-pipe_fd="$1"
-type="$2"
+type="$1"
 
 case "$type" in
     (0) # SaveFile
-        current_folder="$3"
-        current_name="$4"
+        current_folder="$2"
+        current_name="$3"
 
         suggested_file_path="${current_folder}/${current_name}"
         # keep appending _ to suggested file path if it already exists
@@ -71,20 +66,20 @@ case "$type" in
         foot \
             lf \
             -command "set promptfmt \"${promptfmt}\"" \
-            -command 'cmd confirm $fdmove -c 1 '"${pipe_fd}"' echo "$fx"' \
+            -command 'cmd confirm $echo "$fx" >&4' \
             -command 'map <enter> :confirm; quit' \
             "$suggested_file_path"
         ;;
     (2) # OpenFile
-        current_folder="$3"
-        multiple="$4"
-        directory="$5"
+        current_folder="$2"
+        multiple="$3"
+        directory="$4"
 
         if [ "$multiple" = "1" ]; then
-            confirm_cmd='fdmove -c 1 '"${pipe_fd}"' echo "$fx"'
+            confirm_cmd='echo "$fx" >&4'
             promptfmt=' \033[1;32mOpening files:\033[0m \033[1;34m%w/\033[1;37m%f\033[0m'
         else
-            confirm_cmd='fdmove -c 1 '"${pipe_fd}"' echo "$f"'
+            confirm_cmd='echo "$f" >&4'
             promptfmt=' \033[1;32mOpening file:\033[0m \033[1;34m%w/\033[1;37m%f\033[0m'
         fi
 
@@ -104,7 +99,7 @@ case "$type" in
             "$current_folder"
         ;;
     (*)
-        die "Invalid request type: %d\n" "$type"
+        die "Invalid request type: ${type}"
 esac
 
 
