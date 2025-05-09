@@ -4,59 +4,11 @@
 #include <string.h>
 #include <errno.h>
 #include <stdlib.h>
+#include <pwd.h>
 
 #include "config.h"
 #include "log.h"
 #include "xmalloc.h"
-
-enum default_paths {
-    XDG_CONFIG_HOME = 0,
-    ETC_XDG = 1,
-    END = 2,
-};
-
-/*
- *  1 - path constructed succesfully
- *  0 - failed to construct path
- * -1 - no more paths to check
- */
-static int get_next_config_path(const char **ppath) {
-    static enum default_paths current = XDG_CONFIG_HOME;
-    static char path[PATH_MAX];
-
-    switch (current++) {
-    case XDG_CONFIG_HOME: {
-        const char *xdg_config_home = getenv("XDG_CONFIG_HOME");
-        if (xdg_config_home == NULL) {
-            log_print(WARN, "config: XDG_CONFIG_HOME is unset");
-
-            const char *home = getenv("HOME");
-            if (home == NULL) {
-                log_print(WARN, "config: HOME is unset");
-                return 0;
-            }
-
-            snprintf(path, sizeof(path),
-                     "%s/.config/xdg-desktop-portal-termfilechooser/config", home);
-            *ppath = path;
-            return 1;
-        } else {
-            snprintf(path, sizeof(path),
-                     "%s/xdg-desktop-portal-termfilechooser/config", xdg_config_home);
-            *ppath = path;
-            return 1;
-        }
-    }
-    case ETC_XDG:
-        snprintf(path, sizeof(path), "/etc/xdg/xdg-desktop-portal-termfilechooser/config");
-        *ppath = path;
-        return 1;
-    case END:
-        return -1;
-    default:
-        die("config: get_next_config_path: illegal enum value: %d", current);
-    }
-}
 
 static int config_parse_file(struct xdptf_config *config, const char *path) {
     int ret = 0;
@@ -152,28 +104,43 @@ out:
     return ret;
 }
 
+static const char *config_get_path(void) {
+    static char path[PATH_MAX];
+
+    const char *home = getenv("HOME");
+    const char *xdg_config_home = getenv("XDG_CONFIG_HOME");
+    if (xdg_config_home != NULL) {
+        snprintf(path, sizeof(path),
+                 "%s/xdg-desktop-portal-termfilechooser/config", xdg_config_home);
+    } else if (home != NULL) {
+        log_print(WARN, "config: XDG_CONFIG_HOME is unset, trying HOME");
+        snprintf(path, sizeof(path),
+                 "%s/.config/xdg-desktop-portal-termfilechooser/config", home);
+    } else {
+        log_print(WARN, "config: XDG_CONFIG_HOME is unset, trying /etc/passwd");
+
+        struct passwd *passwd = getpwuid(getuid());
+        if (passwd == NULL) {
+            log_print(ERROR, "config: could not get an /etc/passwd for current uid");
+            return NULL;
+        }
+        snprintf(path, sizeof(path),
+                 "%s/.config/xdg-desktop-portal-termfilechooser/config", passwd->pw_dir);
+    }
+
+    return path;
+}
+
 static int config_parse(struct xdptf_config *config, const char *path) {
-    if (path != NULL) {
-        return config_parse_file(config, path);
+    if (path == NULL) {
+        path = config_get_path();
+    }
+    if (path == NULL) {
+        log_print(ERROR, "config: could not determine config file path");
+        return -1;
     }
 
-    int ret;
-    const char *default_path;
-    while ((ret = get_next_config_path(&default_path)) >= 0) {
-        if (ret == 0) {
-            continue;
-        }
-
-        if (access(default_path, R_OK) < 0) {
-            log_print(INFO, "config: skipping config file %s: %s", default_path, strerror(errno));
-            continue;
-        }
-
-        return config_parse_file(config, default_path);
-    }
-
-    log_print(ERROR, "config: ran out of default config paths to check!");
-    return -1;
+    return config_parse_file(config, path);
 }
 
 static void config_fill_missing_values(struct xdptf_config *config) {
@@ -186,14 +153,13 @@ static void config_fill_missing_values(struct xdptf_config *config) {
         }
         log_print(INFO, "config: default_dir not provided, using default: %s", config->default_dir);
     }
-    if (config->picker_cmd == NULL) {
-        /* TODO: instead of hardcoding /usr/share make meson pass the data path here */
-        config->picker_cmd = xstrdup("/usr/share/xdg-desktop-portar-termfilechooser/lf-wrapper.sh");
-        log_print(INFO, "config: picker_cmd not provided, using default: %s", config->picker_cmd);
-    }
 }
 
 static int config_verify(struct xdptf_config *config) {
+    if (config->picker_cmd == NULL) {
+        log_print(ERROR, "config: picker cmd is not specified");
+        return -1;
+    }
     if (access(config->picker_cmd, X_OK) < 0) {
         log_print(ERROR, "config: %s is not executable: %s", config->picker_cmd, strerror(errno));
         return -1;
