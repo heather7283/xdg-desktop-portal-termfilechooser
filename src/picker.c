@@ -31,10 +31,23 @@ int exec_picker(const char *exe,
                   pipe_fds[PIPE_READING_END], strerror(errno));
         goto err;
     }
-
     if (fcntl(pipe_fds[PIPE_READING_END], F_SETFL, flags | O_NONBLOCK) < 0) {
         ret = -errno;
         log_print(ERROR, "failed to set O_NONBLOCK on fd %d: %s",
+                  pipe_fds[PIPE_READING_END], strerror(errno));
+        goto err;
+    }
+
+    flags = fcntl(pipe_fds[PIPE_READING_END], F_GETFD, 0);
+    if (flags < 0) {
+        ret = -errno;
+        log_print(ERROR, "fcntl() on fd %d failed: %s",
+                  pipe_fds[PIPE_READING_END], strerror(errno));
+        goto err;
+    }
+    if (fcntl(pipe_fds[PIPE_READING_END], F_SETFD, flags | FD_CLOEXEC) < 0) {
+        ret = -errno;
+        log_print(ERROR, "failed to set FD_CLOEXEC on fd %d: %s",
                   pipe_fds[PIPE_READING_END], strerror(errno));
         goto err;
     }
