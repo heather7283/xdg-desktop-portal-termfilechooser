@@ -10,4 +10,4 @@
 #define POLLEN_LOG_ERR(fmt, ...) log_print(ERROR, "event loop: " fmt, ##__VA_ARGS__)
 
 #define POLLEN_IMPLEMENTATION
-#include "thirdparty/pollen.h"
+#include "pollen.h"

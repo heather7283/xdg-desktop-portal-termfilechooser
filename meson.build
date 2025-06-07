@@ -89,6 +89,9 @@ executable('xdg-desktop-portal-termfilechooser',
     'src/ds.c',
     'src/config.c',
     'src/pollen_impl.c',
+    include_directories: [
+        'lib'
+    ],
     dependencies: [
         sdbus_dep,
         rt_dep,

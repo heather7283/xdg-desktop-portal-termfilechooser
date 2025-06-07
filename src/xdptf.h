@@ -2,8 +2,8 @@
 #define XDPTF_H
 
 #include "config.h"
-#include "thirdparty/pollen.h"
-#include "thirdparty/queue.h"
+#include "pollen.h"
+#include "queue.h"
 
 struct xdptf {
     struct xdptf_config config;

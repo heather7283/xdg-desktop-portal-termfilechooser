@@ -1,4 +1,4 @@
-#include "thirdparty/pollen.h"
+#include "pollen.h"
 #include "xdptf.h"
 #include "filechooser.h"
 #include "log.h"
